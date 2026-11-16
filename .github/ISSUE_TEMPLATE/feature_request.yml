@@ -1,0 +1,26 @@
+name: 功能建议
+description: 想要的新能力或改进
+title: "[Feature] "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 想解决什么问题
+      placeholder: 聚会时大家想按顺序排歌，但现在只能删了重点 ...
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: 你的想法
+      description: 有具体方案更好，没有也没关系
+  - type: dropdown
+    id: area
+    attributes:
+      label: 涉及范围
+      options:
+        - 面板交互
+        - 队列/播放逻辑
+        - 音源插件
+        - 部署/文档

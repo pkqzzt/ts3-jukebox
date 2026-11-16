@@ -8,10 +8,13 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import urllib.parse
 import urllib.request
 
 from .base import Plugin, PluginError
+
+LRC_TIME = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
 
 
 class NeteasePlugin(Plugin):
@@ -43,8 +46,8 @@ class NeteasePlugin(Plugin):
         with urllib.request.urlopen(url, timeout=20) as resp:
             return json.loads(resp.read())
 
-    def search(self, query):
-        data = self._get("/search", keywords=query, limit=self.limit)
+    def search(self, query, limit=20):
+        data = self._get("/search", keywords=query, limit=min(max(limit, 1), 50))
         songs = []
         for row in (data.get("result") or {}).get("songs") or []:
             songs.append({
@@ -77,3 +80,23 @@ class NeteasePlugin(Plugin):
         if not url:
             raise PluginError("网易云没有返回可播放地址（可能是 VIP / 版权限制）")
         return url
+
+
+    # -- lyrics ------------------------------------------------------------
+    def lyrics(self, track_id):
+        """Return [{"t": seconds, "text": line}] parsed from the LRC response."""
+        data = self._get("/lyric", id=track_id)
+        raw = ((data.get("lrc") or {}).get("lyric") or "").strip()
+        if not raw:
+            return []
+        lines = []
+        for row in raw.splitlines():
+            match = LRC_TIME.match(row)
+            if not match:
+                continue
+            text = LRC_TIME.sub("", row).strip()
+            if not text:
+                continue
+            lines.append({"t": int(match.group(1)) * 60 + float(match.group(2)), "text": text})
+        lines.sort(key=lambda item: item["t"])
+        return lines

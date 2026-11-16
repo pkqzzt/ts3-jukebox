@@ -1,0 +1,9 @@
+data/
+.git/
+.github/
+__pycache__/
+*.pyc
+docs/
+tests/
+config.toml
+*.log

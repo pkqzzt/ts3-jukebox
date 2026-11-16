@@ -31,5 +31,9 @@ button:hover{filter:brightness(1.06)}
 <button type="submit">进入点歌台</button>
 <div class="foot">每 IP 每分钟限点 5 首</div>
 </form>
-<script>if(location.search.includes('err=1'))document.getElementById('err').style.display='block'</script>
+<script>
+var p=new URLSearchParams(location.search),e=document.getElementById('err'),code=p.get('err');
+if(code==='1'){e.textContent='密码不对，再试一次';e.style.display='block'}
+if(code==='2'){e.textContent='尝试次数过多，请稍后再试';e.style.display='block'}
+</script>
 </body></html>

@@ -1,0 +1,48 @@
+name: Bug 反馈
+description: 面板/插件行为不符合预期
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量把环境写清楚，方便复现。
+  - type: textarea
+    id: what
+    attributes:
+      label: 现象
+      description: 发生了什么？期望是什么？
+      placeholder: 点歌后一直显示「准备中」，日志里出现 ...
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      placeholder: |
+        1. 搜索 xxx
+        2. 点击「点歌」
+        3. ...
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 日志
+      description: `journalctl -u ts3-jukebox -n 50` 或终端输出（注意删掉 cookies/密码）
+      render: shell
+  - type: input
+    id: version
+    attributes:
+      label: 版本 / 提交
+      placeholder: v1.1.0 或 commit sha
+  - type: dropdown
+    id: source
+    attributes:
+      label: 相关音源
+      multiple: true
+      options:
+        - 网易云
+        - Apple Music
+        - 面板/队列
+        - 部署/Docker

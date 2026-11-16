@@ -29,9 +29,9 @@ class BotClient:
                 raise BotError("bot returned HTTP %s" % resp.status)
             return resp.read()
 
-    def song(self) -> dict | None:
+    def song(self, timeout: float | None = None) -> dict | None:
         try:
-            data = self._call("song")
+            data = self._call("song", timeout=timeout)
             return json.loads(data)
         except Exception:
             return None

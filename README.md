@@ -28,9 +28,13 @@ TeamSpeak 3 的网页点歌台：浏览器搜歌 → 点歌 / 插播 → 自动�
 
 ## 部署效果
 
-桌面端（搜索 Apple Music + 右侧正在播放与队列）：
+桌面端（搜索 Apple Music + 右侧正在播放、队列、播放历史）：
 
 ![桌面端](docs/screenshots/panel.jpg)
+
+操作演示：切到 Apple Music → 输入「告白气球」→ 点歌入队（实时录制，约 5 秒）：
+
+![演示](docs/screenshots/demo.gif)
 
 手机端（竖屏自适应，适合聚会时随手点歌）：
 
@@ -60,14 +64,17 @@ TeamSpeak 3 的网页点歌台：浏览器搜歌 → 点歌 / 插播 → 自动�
 
 ## 功能
 
-- 🔎 双音源搜索，音源以插件形式加载，可单独启用/禁用
-- 🎵 点歌 / 插播 / 删除 / 跳过 / 暂停 / 音量
-- 📋 队列持久化，重启不丢
+- 🔎 双音源搜索（防抖 + 「显示更多」最多 50 条），音源以插件形式加载
+- 🎵 点歌 / 插播 / 删除 / 跳过 / 暂停 / 音量滑杆
+- 🔀 队列拖动排序、播放历史（最近 50 首，可一键再点）
+- 📋 队列与历史持久化，重启不丢
 - ⏭ 自动接歌：按机器人上报的播放进度判断结束并自动切下一首
+- 🎤 歌词：网易云音源按播放进度高亮
 - ⏳ Apple Music 后台预取：点歌即开始下载，轮到它时几乎秒播
-- 🔐 面板密码登录（HMAC 签名的 Cookie）、按 IP 限流
+- 🔐 面板密码登录（HMAC 签名 Cookie）+ 登录失败限流 + 点歌限流
 - 📱 响应式界面，手机可用
-- 🧩 插件可扩展：新增音源只需实现两个方法
+- 🐳 提供 Dockerfile / docker-compose
+- 🧩 插件自动发现：新增音源只要放一个文件
 
 ## 快速开始
 
@@ -154,6 +161,25 @@ Apple Music 的流是 DRM 加密的，必须用 [gamdl](https://github.com/gloma
 
 > 面板会读取 <code>X-Forwarded-For</code> / <code>CF-Connecting-IP</code> 做限流，反代时记得传。
 
+## Docker 部署
+
+不想动系统 Python 的话，用 compose 一键起（面板 + 网易云 API）：
+
+    cp config.example.toml config.toml     # 改密码、端口
+    docker compose up -d --build
+
+容器用 host 网络，所以 `127.0.0.1:58913`（TS3AudioBot）和 `127.0.0.1:3000`（网易云）直接可用。
+需要 Apple Music 时把 `docker-compose.yml` 里的 `target: base` 改成 `target: apple`，
+镜像里会装好 ffmpeg 和 gamdl，然后配置：
+
+    [plugins.applemusic]
+    gamdl = "/opt/gamdl/venv/bin/gamdl"
+    python = "/opt/gamdl/venv/bin/python"
+    gamdl_config = "/data/gamdl.yml"
+    cookies = "/data/apple_cookies.txt"
+
+数据都在 `./data`，映射成容器的 `/data`。
+
 ## 配置说明
 
 | 段 | 键 | 说明 |
@@ -208,8 +234,11 @@ Apple Music 的流是 DRM 加密的，必须用 [gamdl](https://github.com/gloma
     │       └── applemusic.py
     ├── web/                     # 前端（原生 HTML/CSS/JS）
     ├── scripts/apple/           # Apple Music 辅助脚本（校验 cookies、跨商店匹配）
-    ├── deploy/                  # systemd unit + 安装脚本
+    ├── deploy/                  # systemd unit + 安装脚本 + 容器入口
+    ├── tests/                   # 冒烟测试 + 面板/队列集成测试
     ├── examples/gamdl.yml       # gamdl 配置样例
+    ├── Dockerfile               # 构建目标 base / apple
+    ├── docker-compose.yml
     └── docs/                    # 文档与截图
 
 ## 常见问题
@@ -250,6 +279,10 @@ Apple Music 的流是 DRM 加密的，必须用 [gamdl](https://github.com/gloma
 | [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) | 网易云搜索与播放地址 | 仓库未标注许可证，使用前请自行确认 |
 
 面板、队列状态机、媒体服务与插件框架为本项目原创；Apple Music 插件的跨商店匹配是在实际使用中踩坑后补的。
+
+## 更新记录
+
+见 [CHANGELOG.md](CHANGELOG.md)；参与贡献见 [CONTRIBUTING.md](CONTRIBUTING.md)。
 
 ## License
 

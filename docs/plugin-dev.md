@@ -13,7 +13,8 @@
         def __init__(self, conf, app_dir): ...
         def ready(self) -> tuple[bool, str]: ...        # (可用, 不可用原因)
         def describe(self) -> dict: ...                 # 默认实现即可
-        def search(self, query: str) -> list[dict]: ...
+        def search(self, query: str, limit: int = 20) -> list[dict]: ...
+        def lyrics(self, track_id: str) -> list[dict]: ...   # 可选，[{"t": 12.3, "text": "..."}]
         def prepare(self, track: dict, media) -> str: ...
         def prefetch(self, track, media) -> None: ...   # 可选
         def validate(self, track) -> str | None: ...    # 可选
@@ -54,9 +55,9 @@ Apple 插件用它提前下载：等轮到这首歌时文件已经在本地，�
 
 ## 注册
 
-1. 在 <code>jukebox/plugins/</code> 下新建文件，实现类
-2. 在 <code>jukebox/plugins/__init__.py</code> 的 <code>PLUGIN_CLASSES</code> 里登记
-3. 在 <code>config.toml</code> 的 <code>plugins.enabled</code> 里加上 id，并提供 <code>[plugins.&lt;id&gt;]</code> 配置段
+插件是**自动发现**的：把文件放进 <code>jukebox/plugins/</code>，类继承 <code>Plugin</code> 且 <code>id</code> 非空即可，
+不需要改任何注册表。然后在 <code>config.toml</code> 的 <code>plugins.enabled</code> 里加上 id，
+并提供 <code>[plugins.&lt;id&gt;]</code> 配置段（构造函数会收到这个字典）。
 
 ## 例子：本地音乐目录
 

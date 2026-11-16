@@ -11,11 +11,14 @@ secret_file = "data/secret"
 rate_limit = 5            # song requests per IP ...
 rate_window = 60          # ... per N seconds
 worker = true             # false = UI demo only, never talks to the bot
+login_limit = 5           # failed logins per IP ...
+login_window = 300        # ... before the IP is locked out for this many seconds
 
 [bot]
 # TS3AudioBot web API (enable [web.api] in ts3audiobot.toml)
 url = "http://127.0.0.1:58913"
 context = "/api/bot/use/0/(/"
+timeout = 8               # per-request timeout towards the bot (seconds)
 
 [media]
 # Local HTTP server used to hand downloaded files to the bot

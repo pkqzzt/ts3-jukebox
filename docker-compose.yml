@@ -1,0 +1,26 @@
+# docker compose up -d --build
+#
+# 面板与 TS3AudioBot / 网易云 API 跑在同一台机器上，所以用 host 网络最省事：
+# 容器里直接访问 127.0.0.1:58913（机器人）和 127.0.0.1:3000（网易云）。
+# 需要 Apple Music 时把 build 改成 target: apple，并在 config.toml 里指向
+# /opt/gamdl/venv/bin/gamdl 与 /opt/gamdl/venv/bin/python。
+
+services:
+  jukebox:
+    build:
+      context: .
+      target: base
+    container_name: ts3-jukebox
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - ./data:/data
+      - ./config.toml:/data/config.toml
+    environment:
+      - TZ=Asia/Shanghai
+
+  netease-api:
+    image: binaryify/netease_cloud_music_api:latest
+    container_name: netease-api
+    restart: unless-stopped
+    network_mode: host

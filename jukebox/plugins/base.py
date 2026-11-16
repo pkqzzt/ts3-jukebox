@@ -44,7 +44,7 @@ class Plugin:
         return {"id": self.id, "title": self.title, "ready": ready, "hint": hint}
 
     # -- playback ----------------------------------------------------------
-    def search(self, query: str) -> list[dict]:
+    def search(self, query: str, limit: int = 20) -> list[dict]:
         raise NotImplementedError
 
     def prepare(self, track: dict, media) -> str:

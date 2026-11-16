@@ -109,6 +109,32 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z
   border-radius:8px;padding:8px 12px;margin:0 0 16px}
 .notice.show{display:block}
 .notice a{color:var(--amber2);cursor:pointer;text-decoration:underline}
+
+.vol{display:flex;align-items:center;gap:10px;margin-top:16px;font-size:12px;color:var(--dim)}
+.vol input{flex:1;accent-color:var(--amber);height:3px;cursor:pointer}
+.vol b{font-family:var(--mono);font-size:11px;color:var(--cream);width:26px;text-align:right;font-weight:500}
+.btn.ghost{width:100%;margin-top:8px;background:transparent;border:1px dashed var(--line2);color:var(--dim)}
+.btn.ghost:hover{color:var(--cream)}
+.more{display:block;width:100%;margin:14px 0 4px;background:rgba(237,231,218,.05);border:1px solid var(--line);
+  color:var(--dim);padding:10px;border-radius:9px;font:500 13px var(--sans);cursor:pointer}
+.more:hover{color:var(--cream);border-color:var(--line2)}
+.qitem{cursor:default}
+.qitem[draggable=true]{cursor:grab}
+.qitem.dragging{opacity:.35}
+.qitem.over{box-shadow:inset 0 2px 0 var(--amber)}
+.qlist.hist{max-height:220px}
+.qlist.hist .qn{font-size:12.5px;color:#c9c3b6}
+.modal{position:fixed;inset:0;background:rgba(6,8,11,.74);backdrop-filter:blur(3px);display:none;align-items:center;
+  justify-content:center;padding:22px;z-index:120}
+.modal.show{display:flex}
+.mbox{width:100%;max-width:520px;background:linear-gradient(180deg,#161b24,#101319);border:1px solid var(--line2);
+  border-radius:16px;padding:22px;box-shadow:0 26px 70px rgba(0,0,0,.6)}
+.mbox h3{font-family:var(--serif);font-size:20px;margin:0 0 4px;letter-spacing:.03em}
+.mbox .sub{font-size:12.5px;color:var(--dim);margin-bottom:14px}
+.lyrics{max-height:54vh;overflow:auto;padding-right:6px}
+.lyrics div{font-size:13.5px;line-height:1.9;color:#6f7681;transition:color .25s,transform .25s}
+.lyrics div.on{color:var(--amber2);transform:translateX(4px)}
+.mbox .macts{display:flex;gap:10px;margin-top:16px}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes slide{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#2a2f39;border-radius:3px}
@@ -137,26 +163,43 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z
         <div class="artist" id="npArtist">—</div>
         <div class="bar"><i id="prog"></i></div>
         <div class="times"><span id="tPos">00:00</span><span id="tLen">00:00</span></div>
+        <div class="vol"><span>音量</span><input type="range" id="vol" min="0" max="100" value="50" oninput="volInput(this.value)" onchange="volSend(this.value)"><b id="volVal">50</b></div>
         <div class="ctrls">
           <button class="btn" id="btnToggle" onclick="toggle()">暂停</button>
           <button class="btn primary" onclick="skip()">下一首</button>
         </div>
+        <button class="btn ghost" onclick="openLyrics()">歌词</button>
       </section>
       <section class="card">
         <div class="qhead"><h2>QUEUE</h2><span class="cnt" id="qCount">0</span></div>
         <div class="qlist" id="queue"><div class="empty">队列是空的</div></div>
       </section>
+      <section class="card">
+        <div class="qhead"><h2>HISTORY</h2><span class="cnt" id="hCount">0</span></div>
+        <div class="qlist hist" id="history"><div class="empty">还没放过歌</div></div>
+      </section>
     </aside>
   </div>
 </div>
 
+<div class="modal" id="lyricModal">
+  <div class="mbox">
+    <h3 id="lyricTitle">歌词</h3>
+    <div class="sub" id="lyricSub"></div>
+    <div class="lyrics" id="lyricBody"><div>加载中…</div></div>
+    <div class="macts"><button class="btn" onclick="closeLyrics()">关闭</button></div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 const $=id=>document.getElementById(id);
-let adding=false;let src='';let plugins=[];
+let adding=false, src='', plugins=[], limit=20, searchTimer=null;
+let currentSong=null, lastPos=0, lastHistory=[], dragFrom=-1;
+let vol=+(localStorage.getItem('jb_vol')||50);
+
 async function loadPlugins(){
-  const r=await fetch('/api/plugins');if(r.status===401){location.href='/login';return}
-  const d=await r.json();plugins=d.plugins||[];
+  const r=await fetch('/api/plugins'); if(r.status===401){location.href='/login';return}
+  const d=await r.json(); plugins=d.plugins||[];
   $('srcbar').innerHTML=plugins.map(p=>'<button class="src'+(p.id===src?' on':'')+'" data-s="'+p.id+'" onclick="setSrc(\''+p.id+'\')">'+esc(p.title)+(p.ready?'':'<span class="am">离线</span>')+'</button>').join('');
   if(!src||!plugins.some(p=>p.id===src)){const first=plugins.find(p=>p.ready)||plugins[0];src=first?first.id:''}
   $('srcbar').querySelectorAll('.src').forEach(b=>b.classList.toggle('on',b.dataset.s===src));
@@ -165,15 +208,19 @@ function notice(text){$('notice').textContent=text;$('notice').className='notice
 function fmt(s){s=Math.max(0,Math.floor(s||0));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
 function toast(msg,err){const t=$('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');clearTimeout(t._h);t._h=setTimeout(()=>t.className='toast',2600)}
 function coverHtml(url,cls){if(!url)return '<div class="'+cls+' ph">♪</div>';const u=url.indexOf('music.126.net')>-1?url+'?param=120y120':url;return '<img class="'+cls+'" src="'+u+'" loading="lazy" onerror="this.style.display=\'none\'">'}
-function setSrc(s){src=s;document.querySelectorAll('.src').forEach(b=>b.classList.toggle('on',b.dataset.s===s));$('results').innerHTML='<div class="empty">输入关键词开始搜索</div>';refresh()}
-async function search(){const q=$('q').value.trim();if(!q)return;
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+function setSrc(s){src=s;limit=20;document.querySelectorAll('.src').forEach(b=>b.classList.toggle('on',b.dataset.s===s));$('results').innerHTML='<div class="empty">输入关键词开始搜索</div>';refresh()}
+
+async function search(){
+  const q=$('q').value.trim(); if(!q)return;
   $('results').innerHTML='<div class="empty">搜索中…</div>';
-  const r=await fetch('/api/search?source='+src+'&q='+encodeURIComponent(q));
+  const r=await fetch('/api/search?source='+src+'&q='+encodeURIComponent(q)+'&limit='+limit);
   if(r.status===401){location.href='/login';return}
   const d=await r.json();
   notice(d.ready?'':(d.hint||'该音源暂不可用'));
   if(!d.songs||!d.songs.length){$('results').innerHTML='<div class="empty">没找到，换个关键词试试</div>';return}
-  $('results').innerHTML=d.songs.map((s,i)=>'<div class="track">'+
+  const rows=d.songs.map((s,i)=>'<div class="track">'+
     '<span class="idx">'+String(i+1).padStart(2,'0')+'</span>'+
     coverHtml(s.cover,'cov')+
     '<div class="meta"><div class="name">'+esc(s.name)+'</div><div class="sub">'+esc(s.artist)+' · '+esc(s.album)+'</div></div>'+
@@ -181,23 +228,38 @@ async function search(){const q=$('q').value.trim();if(!q)return;
     '<span class="acts">'+
     '<button onclick=\'add(this,'+JSON.stringify(s).replace(/'/g,"&#39;")+')\'>点歌</button>'+
     '<button class="ins" onclick=\'add(this,'+JSON.stringify(s).replace(/'/g,"&#39;")+',1)\'>插播</button>'+
-    '</span></div>').join('')}
-function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
-async function add(btn,s,ins){if(adding)return;adding=true;btn.disabled=true;const t0=btn.textContent;btn.textContent='...';
+    '</span></div>').join('');
+  const more=d.songs.length>=limit?(limit>=50?'':'<button class="more" onclick="moreResults()">显示更多（'+d.songs.length+' 条，最多 50）</button>'):'';
+  $('results').innerHTML=rows+more;
+}
+function moreResults(){limit=50;search()}
+
+async function add(btn,s,ins){
+  if(adding)return; adding=true;
+  if(btn){btn.disabled=true;var t0=btn.textContent;btn.textContent='...'}
   const r=await fetch('/api/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:s.id,name:s.name,artist:s.artist,album:s.album||'',cover:s.cover||'',duration:s.duration||0,url:s.url||'',storefront:s.storefront||'',isrc:s.isrc||'',source:s.source||src,insert:!!ins})});
-  adding=false;btn.disabled=false;btn.textContent=t0;
+  adding=false; if(btn){btn.disabled=false;btn.textContent=t0}
   if(r.status===429){toast('点歌太频繁，每分钟最多 5 首',true);return}
-  if(r.status===409){const e=await r.json();toast(e.error||'Apple Music 未登录',true);return}
+  if(r.status===409){const e=await r.json();toast(e.error||'该音源不可用',true);return}
   if(r.status===401){location.href='/login';return}
-  toast((ins?'已插播：':'已加入队列：')+s.name);refresh()}
+  toast((ins?'已插播：':'已加入队列：')+s.name); refresh()
+}
+function readd(i){const h=lastHistory[i];if(h)add(null,h,false)}
+
 async function toggle(){await fetch('/api/toggle',{method:'POST'});refresh()}
 async function skip(){await fetch('/api/skip',{method:'POST'});toast('已切歌');refresh()}
 async function rm(i){await fetch('/api/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:i})});refresh()}
-let lastCover='__init__',lastQSig='__init__';
+async function reorder(from,to){await fetch('/api/reorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:from,to:to})});refresh()}
+
+function volInput(v){vol=+v;$('volVal').textContent=v;localStorage.setItem('jb_vol',v)}
+let volTimer=null;
+function volSend(v){clearTimeout(volTimer);volTimer=setTimeout(()=>{fetch('/api/volume',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({v:+v})})},120)}
+
+let lastCover='__init__', lastQSig='__init__', lastHSig='__init__';
 async function refresh(){
-  const r=await fetch('/api/state');if(r.status===401){location.href='/login';return}
+  const r=await fetch('/api/state'); if(r.status===401){location.href='/login';return}
   const d=await r.json();
-  const c=d.current;
+  const c=d.current; currentSong=c; lastPos=d.position||0;
   const pos0=d.position||0;
   $('npTitle').textContent=c?(c.status==='downloading'?'下载中 · '+c.name:c.name):(pos0>0?'正在播放…':'暂无播放');
   $('npArtist').textContent=c?(c.artist||'—'):'—';
@@ -207,14 +269,63 @@ async function refresh(){
   $('prog').style.width=(len?Math.min(100,pos/len*100):0)+'%';
   $('tPos').textContent=fmt(pos);$('tLen').textContent=fmt(len);
   $('btnToggle').textContent=d.paused?'继续':'暂停';
-  const q=d.queue||[];$('qCount').textContent=q.length;
-  const sig=q.map(x=>x.id+'#'+x.name).join('|');
-  if(sig!==lastQSig){lastQSig=sig;
-    $('queue').innerHTML=q.length?q.map((x,i)=>'<div class="qitem"><span class="n">'+String(i+1).padStart(2,'0')+'</span>'+
-      '<div><div class="qn">'+(x.source==='apple'?'<span class="badge">AM</span>':'')+esc(x.name)+'</div><div class="qa">'+esc(x.artist||'')+'</div></div>'+
-      '<button class="x" onclick="rm('+i+')">×</button></div>').join(''):'<div class="empty">队列是空的</div>'}}
+
+  const q=d.queue||[]; $('qCount').textContent=q.length;
+  const qsig=q.map(x=>x.id+'#'+x.name).join('|');
+  if(qsig!==lastQSig){lastQSig=qsig;
+    $('queue').innerHTML=q.length?q.map((x,i)=>'<div class="qitem" draggable="true" data-i="'+i+'"><span class="n">'+(i+1)+'</span>'+
+      '<div><div class="qn">'+(x.source==='applemusic'?'<span class="badge">AM</span>':'')+esc(x.name)+'</div><div class="qa">'+esc(x.artist||'')+'</div></div>'+
+      '<button class="x" onclick="rm('+i+')">×</button></div>').join(''):'<div class="empty">队列是空的</div>'}
+
+  const h=d.history||[]; lastHistory=h; $('hCount').textContent=h.length;
+  const hsig=h.map(x=>x.id).join('|');
+  if(hsig!==lastHSig){lastHSig=hsig;
+    $('history').innerHTML=h.length?h.slice(0,20).map((x,i)=>'<div class="qitem" onclick="readd('+i+')" title="再点一次">'+
+      '<span class="n">'+String(i+1).padStart(2,'0')+'</span>'+
+      '<div><div class="qn">'+(x.source==='applemusic'?'<span class="badge">AM</span>':'')+esc(x.name)+'</div><div class="qa">'+esc(x.artist||'')+'</div></div>'+
+      '<span class="n">+</span></div>').join(''):'<div class="empty">还没放过歌</div>'}
+
+  if($('lyricModal').classList.contains('show'))highlightLyric(lastPos);
+}
+
+let lyricLines=[];
+async function openLyrics(){
+  const c=currentSong;
+  if(!c){toast('当前没有在放的歌',true);return}
+  $('lyricTitle').textContent=c.name||'歌词';
+  $('lyricSub').textContent=c.artist||'';
+  $('lyricBody').innerHTML='<div>加载中…</div>';
+  $('lyricModal').classList.add('show');
+  try{
+    const r=await fetch('/api/lyrics?source='+encodeURIComponent(c.source)+'&id='+encodeURIComponent(c.id));
+    if(!r.ok){$('lyricBody').innerHTML='<div>这个音源暂时没有歌词</div>';return}
+    const d=await r.json(); lyricLines=d.lines||[];
+    if(!lyricLines.length){$('lyricBody').innerHTML='<div>暂无歌词</div>';return}
+    $('lyricBody').innerHTML=lyricLines.map(x=>'<div>'+esc(x.text)+'</div>').join('');
+    highlightLyric(lastPos);
+  }catch(e){$('lyricBody').innerHTML='<div>歌词加载失败</div>'}
+}
+function closeLyrics(){$('lyricModal').classList.remove('show')}
+function highlightLyric(pos){
+  if(!lyricLines.length)return;
+  let idx=-1;
+  for(let i=0;i<lyricLines.length;i++){if(lyricLines[i].t<=pos)idx=i;else break}
+  const rows=$('lyricBody').children;
+  for(let i=0;i<rows.length;i++){rows[i].className=(i===idx?'on':'')}
+  if(idx>=0&&rows[idx])rows[idx].scrollIntoView({block:'center',behavior:'smooth'})
+}
+
+$('queue').addEventListener('dragstart',e=>{const el=e.target.closest('.qitem');if(!el)return;dragFrom=+el.dataset.i;el.classList.add('dragging');e.dataTransfer.effectAllowed='move'});
+$('queue').addEventListener('dragend',()=>{document.querySelectorAll('.qitem').forEach(x=>x.classList.remove('dragging','over'));dragFrom=-1});
+$('queue').addEventListener('dragover',e=>{const el=e.target.closest('.qitem');if(!el||dragFrom<0)return;e.preventDefault();document.querySelectorAll('.qitem').forEach(x=>x.classList.remove('over'));el.classList.add('over')});
+$('queue').addEventListener('drop',e=>{const el=e.target.closest('.qitem');if(!el||dragFrom<0)return;e.preventDefault();const to=+el.dataset.i;document.querySelectorAll('.qitem').forEach(x=>x.classList.remove('over'));if(to!==dragFrom)reorder(dragFrom,to)});
+
 function tick(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
-$('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
-tick();setInterval(tick,10000);loadPlugins().then(refresh);setInterval(refresh,2000);setInterval(loadPlugins,60000);
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(searchTimer);limit=20;search()}});
+$('q').addEventListener('input',()=>{clearTimeout(searchTimer);const v=$('q').value.trim();if(!v)return;searchTimer=setTimeout(()=>{limit=20;search()},380)});
+$('vol').value=vol;$('volVal').textContent=vol;
+tick();setInterval(tick,10000);
+loadPlugins().then(()=>{refresh();volSend(vol)});
+setInterval(refresh,2000);setInterval(loadPlugins,60000);
 </script></body></html>
 

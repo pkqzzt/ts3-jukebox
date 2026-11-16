@@ -22,6 +22,7 @@ import threading
 import time
 import urllib.parse
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 
 from .base import Plugin, PluginError
 
@@ -111,7 +112,7 @@ class AppleMusicPlugin(Plugin):
         return data
 
     # -- search ------------------------------------------------------------
-    def search(self, query):
+    def search(self, query, limit=20):
         term = (query or "").strip()
         if not term:
             return []
@@ -120,22 +121,14 @@ class AppleMusicPlugin(Plugin):
         with self._search_lock:
             hit = self._search_cache.get(key)
             if hit and now - hit[0] < SEARCH_TTL:
-                return hit[1]
+                return hit[1][:limit]
+
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            pages = list(pool.map(lambda country: self._fetch_storefront(term, country), ("hk", "tw", "us")))
 
         found, seen_ids, seen_keys = [], set(), set()
-        for country in ("hk", "tw", "us"):
-            qs = urllib.parse.urlencode({
-                "term": term, "country": country, "media": "music",
-                "entity": "song", "limit": 25, "lang": "zh_CN",
-            })
-            try:
-                req = urllib.request.Request("https://itunes.apple.com/search?" + qs,
-                                             headers={"User-Agent": "ts3-jukebox"})
-                with urllib.request.urlopen(req, timeout=12) as resp:
-                    data = json.loads(resp.read().decode("utf-8", "replace"))
-            except Exception:
-                continue
-            for row in data.get("results") or []:
+        for rows in pages:
+            for row in rows:
                 track_id = row.get("trackId")
                 if not track_id or track_id in seen_ids:
                     continue
@@ -158,13 +151,31 @@ class AppleMusicPlugin(Plugin):
                     "cover": art,
                     "duration": int(row.get("trackTimeMillis") or 0),
                     "url": row.get("trackViewUrl") or "",
-                    "storefront": country,
+                    "storefront": row.get("_storefront") or "",
                 })
-            if len(found) >= 20:
-                break
+                if len(found) >= 50:
+                    break
         with self._search_lock:
             self._search_cache[key] = (now, found)
-        return found[:20]
+        return found[:limit]
+
+    def _fetch_storefront(self, term, country):
+        """Fetch one storefront page; failures degrade to an empty list."""
+        query = urllib.parse.urlencode({
+            "term": term, "country": country, "media": "music",
+            "entity": "song", "limit": 50, "lang": "zh_CN",
+        })
+        try:
+            req = urllib.request.Request("https://itunes.apple.com/search?" + query,
+                                         headers={"User-Agent": "ts3-jukebox"})
+            with urllib.request.urlopen(req, timeout=12) as resp:
+                data = json.loads(resp.read().decode("utf-8", "replace"))
+            rows = data.get("results") or []
+            for row in rows:
+                row["_storefront"] = country
+            return rows
+        except Exception:
+            return []
 
     # -- playback ----------------------------------------------------------
     def validate(self, track):
