@@ -3,6 +3,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
 [![Release](https://img.shields.io/github/v/release/pkqzzt/ts3-jukebox)](https://github.com/pkqzzt/ts3-jukebox/releases)
+[![CI](https://github.com/pkqzzt/ts3-jukebox/actions/workflows/ci.yml/badge.svg)](https://github.com/pkqzzt/ts3-jukebox/actions/workflows/ci.yml)
 [![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-lightgrey.svg)](https://www.debian.org/)
 
 TeamSpeak 3 的网页点歌台：浏览器搜歌 → 点歌 / 插播 → 自动排队 → 机器人逐首播放。
@@ -77,7 +78,7 @@ TeamSpeak 3 的网页点歌台：浏览器搜歌 → 点歌 / 插播 → 自动�
 - [TS3AudioBot](https://github.com/Splamy/TS3AudioBot)（负责真正出声）
 - 可选：Docker（跑网易云 API）、Apple Music 会员账号（跑 Apple Music 插件）
 
-### 1. 准备 TS3AudioBot
+### 1. 准备 [TS3AudioBot](https://github.com/Splamy/TS3AudioBot)
 
 把机器人拉进频道，并在 <code>ts3audiobot.toml</code> 里打开 Web API：
 
