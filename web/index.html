@@ -70,6 +70,8 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
 @media(max-width:700px){.track{grid-template-columns:46px minmax(0,1fr) auto}.track .idx,.track .dur{display:none}.track .acts{opacity:1;transform:none}.track .acts button{padding:6px 10px;font-size:12px}}
 
 .side{display:flex;flex-direction:column;gap:16px;animation:rise .7s .18s both;min-height:0;overflow-y:auto;padding-right:6px}
+.side>*{flex:0 0 auto}
+.srcbar{flex:none}
 .card{background:linear-gradient(180deg,rgba(20,24,33,.92),rgba(16,19,25,.92));border:1px solid var(--line);border-radius:16px;padding:18px}
 .np{position:relative;overflow:hidden}
 .np::before{content:"";position:absolute;inset:-40% -30% auto -30%;height:70%;background:radial-gradient(closest-side,rgba(240,169,59,.20),transparent);filter:blur(20px);pointer-events:none}
@@ -78,8 +80,18 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .np .label{font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--amber);margin:16px 0 6px}
 .np .title{font-family:var(--serif);font-size:23px;line-height:1.35;margin:0 0 4px;letter-spacing:.02em}
 .np .artist{font-size:13px;color:var(--dim);margin-bottom:16px}
-.bar{height:3px;background:rgba(237,231,218,.1);border-radius:2px;overflow:hidden}
-.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--amber2));box-shadow:0 0 12px rgba(240,169,59,.55);transition:width .5s linear}
+.bar{position:relative;height:4px;background:rgba(237,231,218,.1);border-radius:2px;cursor:pointer}
+.bar::after{content:"";position:absolute;left:-8px;right:-8px;top:-9px;bottom:-9px}
+.bar .knob{position:absolute;left:0;top:50%;width:10px;height:10px;margin:-5px 0 0 -5px;border-radius:50%;
+  background:var(--amber2);box-shadow:0 0 8px rgba(240,169,59,.6);opacity:0;transition:opacity .15s;pointer-events:none}
+.bar:hover .knob,.bar.dragging .knob{opacity:1}
+.times{align-items:center}
+.times .seekbtns{display:flex;gap:6px}
+.times .seekbtns button{background:transparent;border:1px solid var(--line);color:var(--dim);
+  font:500 10px var(--mono);padding:2px 6px;border-radius:4px;cursor:pointer;transition:.15s}
+.times .seekbtns button:hover{color:var(--cream);border-color:var(--line2)}
+.bar i{display:block;height:100%;width:0;border-radius:2px;background:linear-gradient(90deg,var(--amber),var(--amber2));box-shadow:0 0 12px rgba(240,169,59,.55);transition:width .5s linear}
+.bar.dragging i{transition:none}
 .times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:#6a707b;margin-top:7px}
 .ctrls{display:flex;gap:10px;margin-top:16px}
 .btn{flex:1;background:rgba(237,231,218,.06);border:1px solid var(--line);color:var(--cream);padding:10px;border-radius:9px;
@@ -166,8 +178,8 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
         <div class="label">NOW PLAYING</div>
         <h3 class="title" id="npTitle">暂无播放</h3>
         <div class="artist" id="npArtist">—</div>
-        <div class="bar"><i id="prog"></i></div>
-        <div class="times"><span id="tPos">00:00</span><span id="tLen">00:00</span></div>
+        <div class="bar" id="bar" title="点击或拖动调整进度"><i id="prog"></i><b class="knob" id="knob"></b></div>
+        <div class="times"><span id="tPos">00:00</span><span class="seekbtns"><button onclick="seekBy(-10)" title="后退 10 秒">−10s</button><button onclick="seekBy(10)" title="前进 10 秒">+10s</button></span><span id="tLen">00:00</span></div>
         <div class="ctrls">
           <button class="btn" id="btnToggle" onclick="toggle()">暂停</button>
           <button class="btn primary" onclick="skip()">下一首</button>
@@ -265,8 +277,12 @@ async function refresh(){
   const cv=c&&c.cover?c.cover:'';
   if(cv!==lastCover){lastCover=cv;$('coverWrap').innerHTML=coverHtml(cv,'cover')}
   const pos=d.position||0,len=d.length||0;
-  $('prog').style.width=(len?Math.min(100,pos/len*100):0)+'%';
-  $('tPos').textContent=fmt(pos);$('tLen').textContent=fmt(len);
+  lastState={pos:pos,len:len,at:Date.now(),paused:!!d.paused};
+  if(!dragging){
+    const pct=len?Math.min(100,pos/len*100):0;
+    $('prog').style.width=pct+'%';$('knob').style.left=pct+'%';$('tPos').textContent=fmt(pos);
+  }
+  $('tLen').textContent=fmt(len);
   $('btnToggle').textContent=d.paused?'继续':'暂停';
 
   const q=d.queue||[]; $('qCount').textContent=q.length;
@@ -286,6 +302,29 @@ async function refresh(){
 
   if($('lyricModal').classList.contains('show'))highlightLyric(lastPos);
 }
+
+let dragging=false, dragPct=0, lastState={pos:0,len:0,at:Date.now(),paused:false};
+const barEl=$('bar');
+function barPct(e){const r=barEl.getBoundingClientRect();return Math.min(1,Math.max(0,(e.clientX-r.left)/r.width))}
+function paintDrag(){const pct=dragPct*100;$('prog').style.width=pct+'%';$('knob').style.left=pct+'%';$('tPos').textContent=fmt(dragPct*lastState.len)}
+if(barEl){
+  barEl.addEventListener('pointerdown',e=>{if(!lastState.len)return;dragging=true;barEl.classList.add('dragging');
+    try{barEl.setPointerCapture(e.pointerId)}catch(x){}dragPct=barPct(e);paintDrag()});
+  barEl.addEventListener('pointermove',e=>{if(!dragging)return;dragPct=barPct(e);paintDrag()});
+  const finish=e=>{if(!dragging)return;dragging=false;barEl.classList.remove('dragging');
+    const pos=dragPct*lastState.len;if(pos>=0)seekTo(pos)};
+  barEl.addEventListener('pointerup',finish);
+  barEl.addEventListener('pointercancel',()=>{dragging=false;barEl.classList.remove('dragging')});
+}
+function estimatePos(){const extra=lastState.paused?0:(Date.now()-lastState.at)/1000;return Math.min(lastState.len||1e9,lastState.pos+extra)}
+async function seekTo(pos){
+  if(!lastState.len){toast('这个音源不支持拖动进度',true);return}
+  try{const r=await fetch('/api/seek',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({position:Math.max(0,pos)})});
+    if(!r.ok){const e=await r.json().catch(()=>({}));toast(e.error||'跳转失败',true);return}
+    toast('已跳到 '+fmt(pos));refresh();
+  }catch(e){toast('跳转失败',true)}
+}
+function seekBy(delta){seekTo(Math.min(lastState.len-1,Math.max(0,estimatePos()+delta)))}
 
 let lyricLines=[];
 async function openLyrics(){

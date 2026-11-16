@@ -461,6 +461,18 @@ class Handler(BaseHTTPRequestHandler):
             except Exception:
                 pass
             return self._send(200, json.dumps({"ok": True}))
+        if url.path == "/api/seek":
+            try:
+                position = float(body.get("position", -1))
+            except (TypeError, ValueError):
+                position = -1
+            if position < 0:
+                return self._send(400, json.dumps({"error": "bad position"}, ensure_ascii=False))
+            try:
+                app.bot.seek(min(position, 86400))
+            except Exception as exc:
+                return self._send(502, json.dumps({"error": "机器人没有接受跳转：%s" % exc}, ensure_ascii=False))
+            return self._send(200, json.dumps({"ok": True}))
         if url.path == "/api/volume":
             try:
                 app.bot.volume(int(body.get("v", 50)))

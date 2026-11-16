@@ -25,7 +25,7 @@ class BotClient:
     def _call(self, path: str, timeout: float | None = None) -> bytes:
         url = self.base + self.context + path
         with urllib.request.urlopen(url, timeout=timeout or self.timeout) as resp:
-            if resp.status != 200:
+            if not 200 <= resp.status < 300:  # TS3AudioBot answers 204 for commands without body
                 raise BotError("bot returned HTTP %s" % resp.status)
             return resp.read()
 
@@ -45,6 +45,10 @@ class BotClient:
 
     def stop(self) -> None:
         self._call("stop")
+
+    def seek(self, position: float) -> None:
+        """Jump to an absolute position in seconds."""
+        self._call("seek/%d" % max(0, int(round(position))))
 
     def volume(self, value: int) -> None:
         self._call("volume/%d" % int(value))
