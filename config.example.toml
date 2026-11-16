@@ -1,0 +1,51 @@
+# ts3-jukebox configuration
+# Copy to config.toml and adjust. Relative paths are resolved against this file.
+
+[server]
+host = "0.0.0.0"          # bind address; put it behind a VPN / reverse proxy if public
+port = 8080
+password = "change-me"    # panel login password
+cookie_name = "jukebox_auth"
+state_file = "data/state.json"
+secret_file = "data/secret"
+rate_limit = 5            # song requests per IP ...
+rate_window = 60          # ... per N seconds
+worker = true             # false = UI demo only, never talks to the bot
+
+[bot]
+# TS3AudioBot web API (enable [web.api] in ts3audiobot.toml)
+url = "http://127.0.0.1:58913"
+context = "/api/bot/use/0/(/"
+
+[media]
+# Local HTTP server used to hand downloaded files to the bot
+host = "127.0.0.1"
+port = 8081
+dir = "data/media"
+
+[plugins]
+enabled = ["netease", "applemusic"]
+
+[plugins.netease]
+# NeteaseCloudMusicApi instance (docker run -p 3000:3000 binaryify/netease_cloud_music_api)
+api = "http://127.0.0.1:3000"
+# MUSIC_U cookie, unlocks VIP / high bitrate streams
+cookie_file = "data/netease_cookie.txt"
+level = "exhigh"
+search_limit = 20
+
+[plugins.applemusic]
+# gamdl installed in its own venv (pip install "gamdl[widevine]")
+gamdl = "/opt/gamdl/venv/bin/gamdl"
+python = "/opt/gamdl/venv/bin/python"
+gamdl_config = "/opt/gamdl/gamdl.yml"
+# exported Apple Music cookies (see docs/apple-music.md)
+cookies = "data/apple_cookies.txt"
+checker = "scripts/apple/check_auth.py"
+finder = "scripts/apple/find_track.py"
+status_file = "data/apple_status.json"
+cache = "data/applemusic"
+log = "data/apple_download.log"
+max_files = 400
+max_gigabytes = 4
+timeout = 300

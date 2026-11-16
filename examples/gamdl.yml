@@ -1,0 +1,64 @@
+# gamdl 4.x configuration used by the Apple Music plugin.
+config_version: 1
+auth:
+  mode: cookies
+  cookies_path: data/apple_cookies.txt
+  wrapper_url: http://127.0.0.1
+  media_user_token: null
+  wrapper_decrypt_host: 127.0.0.1
+  wrapper_decrypt_port: 10020
+  storefront: null
+  language: en-US
+  drm_backend: widevine
+  device_path: null
+download:
+  overwrite: true
+  use_album_date: false
+  segment_concurrency: 4
+  concurrent_downloads: 1
+  song_codec: null
+  song_codec_priority:
+  - aac
+  music_video_codec: null
+  music_video_codec_priority:
+  - h264
+  - h265
+  max_height: 1080
+  uploaded_video_quality: null
+  fail_fast: false
+  artist_auto_select: []
+  library_auto_select: []
+output:
+  directory: data/applemusic
+  temp_path: data/applemusic/.tmp
+  music_video_container: m4v
+  no_tag: false
+  exclude_tags: []
+  save_cover: false
+  cover_format: jpg
+  embedded_cover_size: 1200
+  file_cover_size: 1200
+  no_lyrics_file: true
+  lyrics_file_format: lrc
+  embedded_lyrics_format: text
+  date_tag_template: '%Y-%m-%dT%H:%M:%SZ'
+  save_playlist: false
+  album_folder_template: '{album_artist}/{album}'
+  compilation_folder_template: Compilations/{album}
+  no_album_folder_template: '{artist}/Unknown Album'
+  playlist_folder_template: Playlists/{playlist_artist}
+  single_disc_file_template: '{track:02d} {title}'
+  multi_disc_file_template: '{disc}-{track:02d} {title}'
+  no_album_file_template: '{title}'
+  playlist_file_template: '{playlist_title}'
+  truncate: null
+database:
+  disabled: true
+  save_metadata: false
+  path: data/applemusic/media.sqlite3
+ui:
+  no_progress: true
+  max_visible_tracks: 1
+  no_tracebacks: true
+search:
+  api: itunes

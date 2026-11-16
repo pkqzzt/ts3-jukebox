@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>点歌台 · 接待区</title>
+<style>
+:root{
+  --ink:#0a0c10; --panel:#101319; --panel2:#141821;
+  --line:rgba(237,231,218,.09); --line2:rgba(237,231,218,.16);
+  --cream:#ede7da; --dim:#868b96; --amber:#f0a93b; --amber2:#ffd08a;
+  --teal:#57c9bd;
+  --mono:ui-monospace,"Cascadia Mono","SF Mono",Consolas,"Liberation Mono",monospace;
+  --sans:"PingFang SC","HarmonyOS Sans SC","Microsoft YaHei",system-ui,sans-serif;
+  --serif:"Songti SC","STSong","Noto Serif SC","SimSun",serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;background:
+    radial-gradient(1100px 620px at 88% -12%, rgba(240,169,59,.17), transparent 62%),
+    radial-gradient(900px 520px at -8% 108%, rgba(87,201,189,.09), transparent 60%),
+    var(--ink);
+  color:var(--cream);font:15px/1.6 var(--sans);-webkit-font-smoothing:antialiased;
+}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;opacity:.035;z-index:99;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='140' height='140'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2'/></filter><rect width='140' height='140' filter='url(%23n)' opacity='.7'/></svg>")}
+.app{max-width:1180px;margin:0 auto;padding:34px 26px 60px}
+.top{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;margin-bottom:30px;animation:rise .7s both}
+.brand{display:flex;align-items:baseline;gap:14px}
+.brand h1{font-family:var(--serif);font-size:38px;font-weight:600;letter-spacing:.06em;margin:0}
+.brand .tag{font-family:var(--mono);font-size:11px;letter-spacing:.22em;color:var(--amber);text-transform:uppercase;border:1px solid rgba(240,169,59,.35);padding:3px 8px;border-radius:3px}
+.clock{font-family:var(--mono);font-size:12px;color:var(--dim);letter-spacing:.1em}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) 372px;gap:26px;align-items:start}
+@media(max-width:900px){.grid{grid-template-columns:1fr}.side{order:-1}}
+
+.searchbox{position:relative;margin-bottom:20px;animation:rise .7s .06s both}
+.searchbox input{width:100%;background:transparent;border:0;border-bottom:1px solid var(--line2);
+  color:var(--cream);font:500 22px/1.4 var(--sans);padding:10px 44px 12px 2px;outline:none;transition:border-color .25s}
+.searchbox input::placeholder{color:#5c626d;font-weight:400}
+.searchbox input:focus{outline:none;box-shadow:none;border-color:var(--amber)}
+.searchbox .ico{position:absolute;right:6px;top:12px;color:var(--dim);font-size:18px;pointer-events:none}
+.hint{font-family:var(--mono);font-size:11px;color:var(--dim);letter-spacing:.08em;margin:-10px 0 22px}
+
+.results{display:flex;flex-direction:column;animation:rise .7s .12s both}
+.track{display:grid;grid-template-columns:26px 52px minmax(0,1fr) auto auto;gap:14px;align-items:center;
+  padding:9px 10px;border-radius:10px;transition:background .2s;cursor:default}
+.track:hover{background:rgba(237,231,218,.045)}
+.track .idx{font-family:var(--mono);font-size:11px;color:#4d525c;text-align:right}
+.track .cov{width:52px;height:52px;border-radius:5px;object-fit:cover;background:linear-gradient(135deg,#1b2029,#12151b);display:block}
+.track .cov.ph{display:flex;align-items:center;justify-content:center;color:#3d434e;font-size:18px}
+.track .meta{min-width:0}
+.track .name{font-size:15px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.track .sub{font-size:12.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:2px}
+.track .dur{font-family:var(--mono);font-size:12px;color:#5f6570}
+.track .acts{display:flex;gap:6px;opacity:0;transform:translateX(6px);transition:.22s}
+.track:hover .acts{opacity:1;transform:none}
+.track .acts button{background:var(--amber);color:#1a1206;border:0;padding:7px 14px;border-radius:6px;
+  font:600 13px var(--sans);cursor:pointer;white-space:nowrap;transition:.18s}
+.track .acts button:hover{filter:brightness(1.07)}
+.track .acts button.ins{background:rgba(87,201,189,.13);border:1px solid rgba(87,201,189,.42);color:var(--teal)}
+.track .acts button.ins:hover{background:rgba(87,201,189,.25)}
+.track .acts button:disabled{opacity:.4;cursor:wait}
+@media(max-width:700px){.track{grid-template-columns:46px minmax(0,1fr) auto}.track .idx,.track .dur{display:none}.track .acts{opacity:1;transform:none}.track .acts button{padding:6px 10px;font-size:12px}}
+
+.side{display:flex;flex-direction:column;gap:18px;animation:rise .7s .18s both;position:sticky;top:24px}
+@media(max-width:900px){.side{position:static}}
+.card{background:linear-gradient(180deg,rgba(20,24,33,.92),rgba(16,19,25,.92));border:1px solid var(--line);border-radius:16px;padding:18px}
+.np{position:relative;overflow:hidden}
+.np::before{content:"";position:absolute;inset:-40% -30% auto -30%;height:70%;background:radial-gradient(closest-side,rgba(240,169,59,.20),transparent);filter:blur(20px);pointer-events:none}
+.np .cover{width:100%;aspect-ratio:1;border-radius:12px;object-fit:cover;background:linear-gradient(140deg,#1c222c,#0e1116);box-shadow:0 18px 44px rgba(0,0,0,.55);display:block;position:relative}
+.np .cover.ph{display:flex;align-items:center;justify-content:center;font-size:44px;color:#333a46}
+.np .label{font-family:var(--mono);font-size:10px;letter-spacing:.24em;color:var(--amber);margin:16px 0 6px}
+.np .title{font-family:var(--serif);font-size:23px;line-height:1.35;margin:0 0 4px;letter-spacing:.02em}
+.np .artist{font-size:13px;color:var(--dim);margin-bottom:16px}
+.bar{height:3px;background:rgba(237,231,218,.1);border-radius:2px;overflow:hidden}
+.bar i{display:block;height:100%;width:0;background:linear-gradient(90deg,var(--amber),var(--amber2));box-shadow:0 0 12px rgba(240,169,59,.55);transition:width .5s linear}
+.times{display:flex;justify-content:space-between;font-family:var(--mono);font-size:11px;color:#6a707b;margin-top:7px}
+.ctrls{display:flex;gap:10px;margin-top:16px}
+.btn{flex:1;background:rgba(237,231,218,.06);border:1px solid var(--line);color:var(--cream);padding:10px;border-radius:9px;
+  font-size:13px;cursor:pointer;transition:.18s;font-family:var(--sans)}
+.btn:hover{background:rgba(237,231,218,.11);border-color:var(--line2)}
+.btn.primary{background:var(--amber);color:#1a1206;border-color:transparent;font-weight:600}
+.btn.primary:hover{background:var(--amber2)}
+.qhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
+.qhead h2{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:var(--dim);margin:0;font-weight:500}
+.qhead .cnt{font-family:var(--mono);font-size:11px;color:var(--amber)}
+.qlist{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow:auto}
+.qitem{display:grid;grid-template-columns:20px minmax(0,1fr) 24px;gap:10px;align-items:center;padding:8px 6px;border-radius:8px}
+.qitem:hover{background:rgba(237,231,218,.04)}
+.qitem .n{font-family:var(--mono);font-size:11px;color:#4d525c}
+.qitem .qn{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qitem .qa{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.qitem .x{background:none;border:0;color:#4d525c;font-size:15px;cursor:pointer;padding:0;line-height:1;transition:.15s}
+.qitem .x:hover{color:#e06b6b}
+.empty{font-size:12.5px;color:#525863;padding:10px 4px}
+.toast{position:fixed;left:50%;bottom:28px;transform:translate(-50%,20px);opacity:0;pointer-events:none;
+  background:#1b2029;border:1px solid var(--line2);color:var(--cream);padding:11px 18px;border-radius:10px;font-size:13px;
+  box-shadow:0 14px 40px rgba(0,0,0,.5);transition:.3s;z-index:100}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+.toast.err{border-color:rgba(224,107,107,.5);color:#f3b4b4}
+
+.srcbar{display:flex;align-items:center;gap:8px;margin-bottom:16px}
+.src{background:transparent;border:1px solid var(--line2);color:var(--dim);padding:6px 15px;border-radius:20px;
+  font:500 13px var(--sans);cursor:pointer;transition:.18s}
+.src:hover{color:var(--cream);border-color:rgba(237,231,218,.3)}
+.src.on{background:rgba(240,169,59,.14);border-color:rgba(240,169,59,.55);color:var(--amber2)}
+.src .am{font-family:var(--mono);font-size:10px;letter-spacing:.12em;opacity:.75;margin-left:6px}
+.badge{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--amber);border:1px solid rgba(240,169,59,.4);
+  border-radius:3px;padding:1px 4px;margin-right:6px;vertical-align:1px}
+.notice{display:none;font-size:12.5px;color:#e2b56f;background:rgba(240,169,59,.08);border:1px solid rgba(240,169,59,.22);
+  border-radius:8px;padding:8px 12px;margin:0 0 16px}
+.notice.show{display:block}
+.notice a{color:var(--amber2);cursor:pointer;text-decoration:underline}
+@keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
+@keyframes slide{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#2a2f39;border-radius:3px}
+</style></head><body>
+<div class="app">
+  <header class="top">
+    <div class="brand"><h1>点歌台</h1><span class="tag">TS3 · 接待区</span></div>
+    <div class="clock" id="clock">--:--</div>
+  </header>
+  <div class="grid">
+    <main>
+      <div class="srcbar" id="srcbar"></div>
+      <div class="searchbox">
+        <input id="q" placeholder="搜歌名 / 歌手，回车" autocomplete="off">
+        <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path></svg></span>
+      </div>
+      <div class="hint">每人每分钟最多 5 首 · 点歌后自动排队播放</div>
+      <div class="notice" id="notice"></div>
+      <div class="results" id="results"><div class="empty">输入关键词开始搜索</div></div>
+    </main>
+    <aside class="side">
+      <section class="card np">
+        <div id="coverWrap"><div class="cover ph">♪</div></div>
+        <div class="label">NOW PLAYING</div>
+        <h3 class="title" id="npTitle">暂无播放</h3>
+        <div class="artist" id="npArtist">—</div>
+        <div class="bar"><i id="prog"></i></div>
+        <div class="times"><span id="tPos">00:00</span><span id="tLen">00:00</span></div>
+        <div class="ctrls">
+          <button class="btn" id="btnToggle" onclick="toggle()">暂停</button>
+          <button class="btn primary" onclick="skip()">下一首</button>
+        </div>
+      </section>
+      <section class="card">
+        <div class="qhead"><h2>QUEUE</h2><span class="cnt" id="qCount">0</span></div>
+        <div class="qlist" id="queue"><div class="empty">队列是空的</div></div>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script>
+const $=id=>document.getElementById(id);
+let adding=false;let src='';let plugins=[];
+async function loadPlugins(){
+  const r=await fetch('/api/plugins');if(r.status===401){location.href='/login';return}
+  const d=await r.json();plugins=d.plugins||[];
+  $('srcbar').innerHTML=plugins.map(p=>'<button class="src'+(p.id===src?' on':'')+'" data-s="'+p.id+'" onclick="setSrc(\''+p.id+'\')">'+esc(p.title)+(p.ready?'':'<span class="am">离线</span>')+'</button>').join('');
+  if(!src||!plugins.some(p=>p.id===src)){const first=plugins.find(p=>p.ready)||plugins[0];src=first?first.id:''}
+  $('srcbar').querySelectorAll('.src').forEach(b=>b.classList.toggle('on',b.dataset.s===src));
+}
+function notice(text){$('notice').textContent=text;$('notice').className='notice'+(text?' show':'')}
+function fmt(s){s=Math.max(0,Math.floor(s||0));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
+function toast(msg,err){const t=$('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');clearTimeout(t._h);t._h=setTimeout(()=>t.className='toast',2600)}
+function coverHtml(url,cls){if(!url)return '<div class="'+cls+' ph">♪</div>';const u=url.indexOf('music.126.net')>-1?url+'?param=120y120':url;return '<img class="'+cls+'" src="'+u+'" loading="lazy" onerror="this.style.display=\'none\'">'}
+function setSrc(s){src=s;document.querySelectorAll('.src').forEach(b=>b.classList.toggle('on',b.dataset.s===s));$('results').innerHTML='<div class="empty">输入关键词开始搜索</div>';refresh()}
+async function search(){const q=$('q').value.trim();if(!q)return;
+  $('results').innerHTML='<div class="empty">搜索中…</div>';
+  const r=await fetch('/api/search?source='+src+'&q='+encodeURIComponent(q));
+  if(r.status===401){location.href='/login';return}
+  const d=await r.json();
+  notice(d.ready?'':(d.hint||'该音源暂不可用'));
+  if(!d.songs||!d.songs.length){$('results').innerHTML='<div class="empty">没找到，换个关键词试试</div>';return}
+  $('results').innerHTML=d.songs.map((s,i)=>'<div class="track">'+
+    '<span class="idx">'+String(i+1).padStart(2,'0')+'</span>'+
+    coverHtml(s.cover,'cov')+
+    '<div class="meta"><div class="name">'+esc(s.name)+'</div><div class="sub">'+esc(s.artist)+' · '+esc(s.album)+'</div></div>'+
+    '<span class="dur">'+fmt(s.duration/1000)+'</span>'+
+    '<span class="acts">'+
+    '<button onclick=\'add(this,'+JSON.stringify(s).replace(/'/g,"&#39;")+')\'>点歌</button>'+
+    '<button class="ins" onclick=\'add(this,'+JSON.stringify(s).replace(/'/g,"&#39;")+',1)\'>插播</button>'+
+    '</span></div>').join('')}
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+async function add(btn,s,ins){if(adding)return;adding=true;btn.disabled=true;const t0=btn.textContent;btn.textContent='...';
+  const r=await fetch('/api/add',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:s.id,name:s.name,artist:s.artist,album:s.album||'',cover:s.cover||'',duration:s.duration||0,url:s.url||'',storefront:s.storefront||'',isrc:s.isrc||'',source:s.source||src,insert:!!ins})});
+  adding=false;btn.disabled=false;btn.textContent=t0;
+  if(r.status===429){toast('点歌太频繁，每分钟最多 5 首',true);return}
+  if(r.status===409){const e=await r.json();toast(e.error||'Apple Music 未登录',true);return}
+  if(r.status===401){location.href='/login';return}
+  toast((ins?'已插播：':'已加入队列：')+s.name);refresh()}
+async function toggle(){await fetch('/api/toggle',{method:'POST'});refresh()}
+async function skip(){await fetch('/api/skip',{method:'POST'});toast('已切歌');refresh()}
+async function rm(i){await fetch('/api/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:i})});refresh()}
+let lastCover='__init__',lastQSig='__init__';
+async function refresh(){
+  const r=await fetch('/api/state');if(r.status===401){location.href='/login';return}
+  const d=await r.json();
+  const c=d.current;
+  const pos0=d.position||0;
+  $('npTitle').textContent=c?(c.status==='downloading'?'下载中 · '+c.name:c.name):(pos0>0?'正在播放…':'暂无播放');
+  $('npArtist').textContent=c?(c.artist||'—'):'—';
+  const cv=c&&c.cover?c.cover:'';
+  if(cv!==lastCover){lastCover=cv;$('coverWrap').innerHTML=coverHtml(cv,'cover')}
+  const pos=d.position||0,len=d.length||0;
+  $('prog').style.width=(len?Math.min(100,pos/len*100):0)+'%';
+  $('tPos').textContent=fmt(pos);$('tLen').textContent=fmt(len);
+  $('btnToggle').textContent=d.paused?'继续':'暂停';
+  const q=d.queue||[];$('qCount').textContent=q.length;
+  const sig=q.map(x=>x.id+'#'+x.name).join('|');
+  if(sig!==lastQSig){lastQSig=sig;
+    $('queue').innerHTML=q.length?q.map((x,i)=>'<div class="qitem"><span class="n">'+String(i+1).padStart(2,'0')+'</span>'+
+      '<div><div class="qn">'+(x.source==='apple'?'<span class="badge">AM</span>':'')+esc(x.name)+'</div><div class="qa">'+esc(x.artist||'')+'</div></div>'+
+      '<button class="x" onclick="rm('+i+')">×</button></div>').join(''):'<div class="empty">队列是空的</div>'}}
+function tick(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
+$('q').addEventListener('keydown',e=>{if(e.key==='Enter')search()});
+tick();setInterval(tick,10000);loadPlugins().then(refresh);setInterval(refresh,2000);setInterval(loadPlugins,60000);
+</script></body></html>
+
