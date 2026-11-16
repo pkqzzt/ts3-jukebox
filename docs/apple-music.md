@@ -5,7 +5,7 @@ CDN 直链丢给播放器。所以 Apple 音源的链路是：
 
     iTunes 搜索 → gamdl 用你的账号下载并解密成 m4a → 面板内置媒体服务 → TS3AudioBot 播放
 
-这套东西需要三样：**gamdl**、**Apple Music 会员账号的 cookies**、**面板里的路径配置**。
+这套东西需要三样：[gamdl](https://github.com/glomatico/gamdl)、**Apple Music 会员账号的 cookies**、**面板里的路径配置**。
 
 ## 1. 安装 gamdl
 

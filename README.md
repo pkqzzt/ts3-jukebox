@@ -1,5 +1,10 @@
 # TS3 点歌台 · ts3-jukebox
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.11%2B-3776AB.svg?logo=python&logoColor=white)](https://www.python.org/)
+[![Release](https://img.shields.io/github/v/release/pkqzzt/ts3-jukebox)](https://github.com/pkqzzt/ts3-jukebox/releases)
+[![Platform](https://img.shields.io/badge/platform-Debian%20%7C%20Ubuntu-lightgrey.svg)](https://www.debian.org/)
+
 TeamSpeak 3 的网页点歌台：浏览器搜歌 → 点歌 / 插播 → 自动排队 → 机器人逐首播放。
 音源做成插件，自带 **网易云音乐** 与 **Apple Music** 两个实现。
 
@@ -232,6 +237,21 @@ Apple Music 的流是 DRM 加密的，必须用 [gamdl](https://github.com/gloma
 - <code>config.toml</code>、<code>data/</code>、cookies 文件都应是 <code>600</code>，不要提交到仓库
 - 本项目的 .gitignore 已排除 <code>data/</code> 与 <code>config.toml</code>
 
+## 依赖与致谢
+
+本项目不含下列项目的代码，只通过 HTTP 接口或命令行调用它们；各自遵循自己的许可证：
+
+| 项目 | 作用 | 许可证 |
+|---|---|---|
+| [TS3AudioBot](https://github.com/Splamy/TS3AudioBot) | 连接 TeamSpeak，真正负责解码与播放 | OSL-3.0 |
+| [gamdl](https://github.com/glomatico/gamdl) | Apple Music 下载与 Widevine 解密 | MIT |
+| [pywidevine](https://github.com/devine-dl/pywidevine) | gamdl 的 DRM 后端（可选依赖，单独安装） | GPL-3.0 |
+| [NeteaseCloudMusicApi](https://github.com/Binaryify/NeteaseCloudMusicApi) | 网易云搜索与播放地址 | 仓库未标注许可证，使用前请自行确认 |
+
+面板、队列状态机、媒体服务与插件框架为本项目原创；Apple Music 插件的跨商店匹配是在实际使用中踩坑后补的。
+
 ## License
 
-MIT
+本项目以 [MIT License](LICENSE) 发布，Copyright (c) 2026 [pkqzzt](https://github.com/pkqzzt)。
+
+使用本项目下载/播放的音乐内容版权归各平台与原权利人所有，请自行确保使用场景合法。

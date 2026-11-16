@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "如果这个项目对你有帮助，可以这样引用。"
+title: "ts3-jukebox: TeamSpeak 3 点歌台（插件式音源）"
+abstract: >-
+  一个给 TeamSpeak 3 用的网页点歌台：搜索、排队、自动播放，
+  音源以插件形式接入（网易云音乐 / Apple Music）。
+type: software
+authors:
+  - name: "pkqzzt"
+    website: "https://github.com/pkqzzt"
+repository-code: "https://github.com/pkqzzt/ts3-jukebox"
+url: "https://github.com/pkqzzt/ts3-jukebox"
+license: MIT
+version: "1.0.0"
+date-released: "2026-11-16"
+keywords:
+  - teamspeak
+  - teamspeak3
+  - music-bot
+  - jukebox
+  - apple-music
+  - netease
