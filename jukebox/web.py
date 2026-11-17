@@ -545,7 +545,7 @@ class Handler(BaseHTTPRequestHandler):
                     return self._send(200, json.dumps({"ok": True, "duplicate": True}, ensure_ascii=False))
                 if len(tracks) >= 300:
                     return self._send(400, json.dumps({"error": "歌单已满 300 首"}, ensure_ascii=False))
-                tracks.append(track)
+                tracks.insert(0, track)  # newest first
                 playlist["tracks"] = tracks
                 playlist["updated"] = int(time.time())
                 sources = {str(t.get("source")) for t in tracks if t.get("source")}

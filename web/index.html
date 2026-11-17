@@ -555,7 +555,7 @@ async function addToPublic(id,track){
     var r=await fetch('/api/public_playlists/add_track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,track:t})});
     var d=await r.json();
     if(!r.ok){toast(d.error||'加入失败',true);return}
-    toast(d.duplicate?'这首歌已经在里面了':'已加入公共歌单');
+    toast(d.duplicate?'这首歌已经在里面了':'已加到歌单最前面');
     $('pickModal').classList.remove('show'); pendingTrack=null;
     plCache={}; await loadPublic();
   }catch(e){toast('加入失败',true)}
