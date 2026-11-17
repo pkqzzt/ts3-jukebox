@@ -164,13 +164,17 @@ Apple Music 的流是 DRM 加密的，必须用 [gamdl](https://github.com/gloma
 
 ## 歌单
 
-把别人发来的歌单链接粘贴进来就能整单听（入口在搜索框右上角「＋ 歌单」）：
+保存过的歌单以**胶囊按钮常驻在搜索框上方**，点一下左侧直接列出整张歌单，逐首「点歌 / 插播」，不用每次开弹窗：
 
-![歌单](docs/screenshots/playlist.jpg)
+![歌单视图](docs/screenshots/playlist-view.jpg)
+
+导入新歌单：点「＋ 导入歌单」粘贴链接，解析完会自动跳到该歌单：
+
+![导入歌单](docs/screenshots/playlist.jpg)
 
 - 支持网易云 `music.163.com/playlist?id=...`、Apple Music `music.apple.com/.../playlist/.../pl.xxxx`
 - 解析后歌单保存在**浏览器本地**（localStorage），换浏览器/清缓存就没了
-- 每首歌右边有「＋插播」「点歌」；歌单标题栏有「全部点歌 / 全部插播」，一次请求入队（最多 100 首/次）
+- 每首歌右侧「点歌 / 插播」；歌单顶部有「全部点歌 / 全部插播」，一次请求入队（最多 100 首/次）
 - 单个歌单最多解析 300 首，超出会提示已截断
 - Apple Music 歌单解析较慢（要过一遍 Apple 接口），通常 3~6 秒
 
