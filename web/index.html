@@ -133,9 +133,6 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .plchip.add:hover{color:var(--amber2);border-color:rgba(240,169,59,.45)}
 .plviewhead{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
 .plviewhead .plmeta{flex:1;min-width:140px}
-.plbtn{margin-left:auto;background:transparent;border:1px dashed var(--line2);color:var(--dim);
-  padding:6px 12px;border-radius:20px;font:500 12.5px var(--sans);cursor:pointer;transition:.18s;white-space:nowrap}
-.plbtn:hover{color:var(--amber2);border-color:rgba(240,169,59,.5)}
 .mbox.wide{max-width:700px}
 .plrow{display:flex;gap:8px;margin-bottom:10px}
 .plrow input{flex:1;background:#0c0f14;border:1px solid var(--line2);border-radius:9px;color:var(--cream);
@@ -202,7 +199,7 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
   </header>
   <div class="grid">
     <main>
-      <div class="srcbar"><div id="srcbar" class="srcwrap"></div><button class="plbtn" onclick="openPlaylists()" title="导入歌单">＋ 歌单</button></div>
+      <div class="srcbar"><div id="srcbar" class="srcwrap"></div></div>
       <div class="plchips" id="plChips"></div>
       <div class="searchbox">
         <input id="q" placeholder="搜歌名 / 歌手，回车" autocomplete="off">
