@@ -134,6 +134,9 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .plchip .tag{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--teal);border:1px solid rgba(87,201,189,.45);border-radius:3px;padding:0 4px}
 .plchip.add{border-style:dashed;color:var(--dim);background:transparent}
 .plchip.add:hover{color:var(--amber2);border-color:rgba(240,169,59,.45)}
+.pladd{background:transparent;border:1px solid var(--line2);color:var(--dim);border-radius:6px;width:28px;height:28px;
+  font-size:15px;line-height:1;cursor:pointer;transition:.15s}
+.pladd:hover{color:var(--amber2);border-color:rgba(240,169,59,.5)}
 .plviewhead{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
 .plviewhead .plmeta{flex:1;min-width:140px}
 .mbox.wide{max-width:700px}
@@ -259,6 +262,28 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
     <div class="macts"><button class="btn" onclick="closePlaylists()">关闭</button></div>
   </div>
 </div>
+<div class="modal" id="pickModal">
+  <div class="mbox">
+    <h3>加到公共歌单</h3>
+    <div class="sub" id="pickSub"></div>
+    <div class="pllist" id="pickList"></div>
+    <div class="macts">
+      <button class="btn" onclick="closePick()">取消</button>
+      <button class="btn primary" onclick="openNewPublic()">新建并加入</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="plNewModal">
+  <div class="mbox">
+    <h3>新建公共歌单</h3>
+    <div class="sub">建好的歌单所有人都能看到，之后可以从搜索结果点「＋」把歌加进去</div>
+    <div class="plrow"><input id="plNewName" placeholder="歌单名字，例如：周杰伦精选" maxlength="40"></div>
+    <div class="macts">
+      <button class="btn" onclick="document.getElementById('plNewModal').classList.remove('show')">取消</button>
+      <button class="btn primary" onclick="doCreatePublic()">创建</button>
+    </div>
+  </div>
+</div>
 <div class="toast" id="toast"></div>
 <script>
 const $=id=>document.getElementById(id);
@@ -297,6 +322,7 @@ async function search(){
     '<span class="acts">'+
     '<button onclick=\'add(this,'+JSON.stringify(s).replace(/'/g,"&#39;")+')\'>点歌</button>'+
     '<button class="ins" onclick=\'add(this,'+JSON.stringify(s).replace(/'/g,"&#39;")+',1)\'>插播</button>'+
+    '<button class="pladd" title="加到公共歌单" onclick=\'pickTarget('+JSON.stringify(s).replace(/'/g,"&#39;")+')\'>＋</button>'+
     '</span></div>').join('');
   const more=d.songs.length>=limit?(limit>=50?'':'<button class="more" onclick="moreResults()">显示更多（'+d.songs.length+' 条，最多 50）</button>'):'';
   $('results').innerHTML=rows+more;
@@ -415,6 +441,7 @@ $('queue').addEventListener('drop',e=>{const el=e.target.closest('.qitem');if(!e
 let saved=loadSaved(), openPl=-1;
 let plView='search', plKind='local', plKey=null, plPublic=[], plCache={}, plCurrent=null;
 
+function srcLabel(s){return s==='applemusic'?'Apple Music':(s==='netease'?'网易云':(s==='mixed'?'混合':'—'))}
 function renderChips(){
   var box=$('plChips'); if(!box)return;
   var out='';
@@ -430,6 +457,7 @@ function renderChips(){
       esc(pp.title)+'<span class="c">'+pp.count+'</span><span class="tag">公共</span></button>';
   }
   out+='<button class="plchip add" onclick="openPlaylists()">＋ 导入歌单</button>';
+  out+='<button class="plchip add" onclick="openNewPublic()">＋ 新建公共歌单</button>';
   box.innerHTML=out;
 }
 async function loadPublic(){
@@ -440,7 +468,7 @@ function renderPlaylistView(pl,kind,key){
   plCurrent=pl; plView='playlist'; plKind=kind; plKey=key; renderChips(); notice('');
   var head='<div class="plviewhead"><div class="plmeta"><div class="plname">'+esc(pl.title)+'</div>'+
     '<div class="plsub">'+esc(pl.artist||'')+(pl.artist?' · ':'')+pl.tracks.length+' 首 · '+
-    (pl.source==='applemusic'?'Apple Music':'网易云')+(kind==='public'?' · 公共歌单':'')+'</div></div>'+
+    srcLabel(pl.source)+(kind==='public'?' · 公共歌单':'')+'</div></div>'+
     '<button class="plmini" onclick="addAllCurrent(false)">全部点歌</button>'+
     '<button class="plmini" onclick="addAllCurrent(true)">全部插播</button>'+
     (kind==='local'?'<button class="plmini" onclick="publishCurrent()">发布到服务器</button>'
@@ -498,6 +526,61 @@ async function unpublishCurrent(){
   }catch(e){toast('删除失败',true)}
 }
 
+let pendingTrack=null;
+async function pickTarget(track){
+  pendingTrack=track;
+  $('pickSub').textContent=(track.name||'')+(track.artist?' · '+track.artist:'');
+  $('pickList').innerHTML='<div class="empty">加载中…</div>';
+  $('pickModal').classList.add('show');
+  await loadPublic();
+  renderPickList();
+}
+function renderPickList(){
+  var box=$('pickList');
+  if(!plPublic.length){box.innerHTML='<div class="empty">还没有公共歌单，点下面「新建并加入」</div>';return}
+  var out='';
+  for(var i=0;i<plPublic.length;i++){
+    var p=plPublic[i];
+    out+='<div class="plitem"><div class="plhead" onclick="addToPublic(\''+p.id+'\')">'+
+      '<div class="plmeta"><div class="plname">'+esc(p.title)+'</div><div class="plsub">'+p.count+' 首 · '+
+      srcLabel(p.source)+'</div></div>'+
+      '<button class="plmini primary">加入</button></div></div>';
+  }
+  box.innerHTML=out;
+}
+function closePick(){$('pickModal').classList.remove('show');pendingTrack=null}
+async function addToPublic(id,track){
+  var t=track||pendingTrack; if(!t)return;
+  try{
+    var r=await fetch('/api/public_playlists/add_track',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:id,track:t})});
+    var d=await r.json();
+    if(!r.ok){toast(d.error||'加入失败',true);return}
+    toast(d.duplicate?'这首歌已经在里面了':'已加入公共歌单');
+    $('pickModal').classList.remove('show'); pendingTrack=null;
+    plCache={}; await loadPublic();
+  }catch(e){toast('加入失败',true)}
+}
+function openNewPublic(){
+  $('plNewModal').classList.add('show');
+  $('plNewName').value='';
+  setTimeout(function(){try{$('plNewName').focus()}catch(e){}},50);
+}
+async function doCreatePublic(){
+  var title=$('plNewName').value.trim();
+  if(!title){toast('给歌单起个名字',true);return}
+  try{
+    var r=await fetch('/api/public_playlists/create',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({title:title})});
+    var d=await r.json();
+    if(!r.ok){toast(d.error||'创建失败',true);return}
+    $('plNewModal').classList.remove('show');
+    toast('已创建：'+title);
+    plCache[d.id]={id:d.id,source:'mixed',title:title,artist:'',cover:'',tracks:[]};
+    await loadPublic();
+    if(pendingTrack){ await addToPublic(d.id,pendingTrack); }
+    else { showPublic(d.id); }
+  }catch(e){toast('创建失败',true)}
+}
+
 function loadSaved(){try{var raw=JSON.parse(localStorage.getItem('jb_playlists')||'[]');return Array.isArray(raw)?raw:[]}catch(e){return []}}
 function persistSaved(){try{localStorage.setItem('jb_playlists',JSON.stringify(saved))}catch(e){}}
 function openPlaylists(){$('plModal').classList.add('show');renderSaved()}
@@ -528,7 +611,7 @@ function renderSaved(){
     out+='<div class="plitem"><div class="plhead" onclick="togglePl('+i+')">'+
       coverHtml(pl.cover,'plcov')+
       '<div class="plmeta"><div class="plname">'+esc(pl.title)+'</div><div class="plsub">'+
-        esc(pl.artist||'')+(pl.artist?' · ':'')+pl.tracks.length+' 首 · '+(pl.source==='applemusic'?'Apple Music':'网易云')+
+        esc(pl.artist||'')+(pl.artist?' · ':'')+pl.tracks.length+' 首 · '+srcLabel(pl.source)+
       '</div></div>'+
       '<button class="plmini" onclick="event.stopPropagation();addAll('+i+',false)">全部点歌</button>'+
       '<button class="plmini" onclick="event.stopPropagation();addAll('+i+',true)">全部插播</button>'+

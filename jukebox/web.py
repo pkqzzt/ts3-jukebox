@@ -11,6 +11,7 @@ import sys
 import threading
 import time
 import urllib.parse
+import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from . import plugins as plugin_registry
@@ -510,6 +511,49 @@ class Handler(BaseHTTPRequestHandler):
                 app.save_state()
             app.schedule_prefetch(plugin, item)
             return self._send(200, json.dumps({"ok": True}))
+        if url.path == "/api/public_playlists/create":
+            title = str(body.get("title") or "").strip()[:80] or "新歌单"
+            playlist_id = "pl_" + uuid.uuid4().hex[:12]
+            record = {
+                "id": playlist_id,
+                "source": "mixed",
+                "title": title,
+                "artist": "",
+                "cover": "",
+                "tracks": [],
+                "updated": int(time.time()),
+            }
+            app.put_public(record)
+            return self._send(200, json.dumps({"ok": True, "id": playlist_id}, ensure_ascii=False))
+        if url.path == "/api/public_playlists/add_track":
+            playlist_id = str(body.get("id") or "")
+            track = body.get("track") or {}
+            source = str(track.get("source") or "")
+            if not isinstance(track, dict) or source not in app.plugins \
+                    or not str(track.get("id") or "") or not str(track.get("name") or "").strip():
+                return self._send(400, json.dumps({"error": "曲目无效或音源未启用"}, ensure_ascii=False))
+            with app.public_lock:
+                playlist = None
+                for item in app.public_playlists:
+                    if item.get("id") == playlist_id:
+                        playlist = item
+                        break
+                if playlist is None:
+                    return self._send(404, json.dumps({"error": "歌单不存在"}, ensure_ascii=False))
+                tracks = playlist.get("tracks") or []
+                if any(str(t.get("source")) == source and str(t.get("id")) == str(track.get("id")) for t in tracks):
+                    return self._send(200, json.dumps({"ok": True, "duplicate": True}, ensure_ascii=False))
+                if len(tracks) >= 300:
+                    return self._send(400, json.dumps({"error": "歌单已满 300 首"}, ensure_ascii=False))
+                tracks.append(track)
+                playlist["tracks"] = tracks
+                playlist["updated"] = int(time.time())
+                sources = {str(t.get("source")) for t in tracks if t.get("source")}
+                playlist["source"] = sources.pop() if len(sources) == 1 else "mixed"
+                if not playlist.get("cover") and track.get("cover"):
+                    playlist["cover"] = track["cover"]
+                app._save_public()
+            return self._send(200, json.dumps({"ok": True, "count": len(tracks)}, ensure_ascii=False))
         if url.path == "/api/public_playlists":
             pl = body.get("playlist") or {}
             tracks = pl.get("tracks") or []

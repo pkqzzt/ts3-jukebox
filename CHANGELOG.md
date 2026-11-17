@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [1.5.0] - 2026-11-17
+
+### Added
+- 「＋ 新建公共歌单」：创建空歌单并命名，所有人可见
+- 搜索结果每条新增「＋」按钮：选一个公共歌单即可加入（自动去重，满 300 首提示）
+- 公共歌单的音源标签会随曲目自动变成「网易云 / Apple Music / 混合」（`POST /api/public_playlists/create`、`POST /api/public_playlists/add_track`）
+
 ## [1.4.0] - 2026-11-17
 
 ### Added
