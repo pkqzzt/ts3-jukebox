@@ -9,6 +9,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -17,6 +18,14 @@ from .base import Plugin, PluginError
 LRC_TIME = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
 PLAYLIST_ID = re.compile(r"/playlist/(\d+)|[?&#]id=(\d+)")
 PLAYLIST_LIMIT = 300
+
+
+def playlist_id(url: str):
+    """Extract a NetEase playlist id from share links with tracking params."""
+    if "playlist" not in (url or ""):
+        return None
+    match = PLAYLIST_ID.search(url)
+    return (match.group(1) or match.group(2)) if match else None
 
 
 class NeteasePlugin(Plugin):
@@ -44,9 +53,24 @@ class NeteasePlugin(Plugin):
         return True, ""
 
     def _get(self, path, **params):
+        cookie = self.cookie()
+        if cookie and "cookie" not in params:
+            params["cookie"] = "MUSIC_U=" + cookie
         url = self.api + path + "?" + urllib.parse.urlencode(params)
-        with urllib.request.urlopen(url, timeout=20) as resp:
-            return json.loads(resp.read())
+        try:
+            with urllib.request.urlopen(url, timeout=25) as resp:
+                data = json.loads(resp.read())
+        except urllib.error.HTTPError as exc:
+            raw = exc.read().decode("utf-8", "replace")
+            try:
+                payload = json.loads(raw)
+            except Exception:
+                payload = {}
+            message = payload.get("message") or payload.get("msg") or ("网易云接口返回 HTTP %s" % exc.code)
+            raise PluginError(str(message)) from None
+        if isinstance(data, dict) and data.get("code") not in (200, None):
+            raise PluginError(str(data.get("message") or data.get("msg") or "网易云接口返回错误"))
+        return data
 
     def search(self, query, limit=20):
         data = self._get("/search", keywords=query, limit=min(max(limit, 1), 50))
@@ -106,12 +130,9 @@ class NeteasePlugin(Plugin):
 
     # -- playlist ----------------------------------------------------------
     def playlist(self, url):
-        match = None
-        if "playlist" in (url or ""):
-            match = PLAYLIST_ID.search(url)
-        if not match:
+        pid = playlist_id(url)
+        if not pid:
             raise PluginError("不是有效的网易云歌单链接")
-        pid = match.group(1) or match.group(2)
         detail = self._get("/playlist/detail", id=pid)
         data = detail.get("playlist") or {}
         if not data:

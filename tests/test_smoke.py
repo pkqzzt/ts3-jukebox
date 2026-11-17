@@ -44,6 +44,17 @@ class PluginTests(unittest.TestCase):
             create("nope", {}, ROOT)
 
 
+class NeteaseUrlTests(unittest.TestCase):
+    def test_playlist_id_from_share_link(self):
+        from jukebox.plugins.netease import playlist_id
+
+        self.assertEqual(playlist_id("https://music.163.com/playlist?id=503017766&uct2=abc%2Bdef"), "503017766")
+        self.assertEqual(playlist_id("https://music.163.com/#/playlist?id=12"), "12")
+        self.assertEqual(playlist_id("https://y.music.163.com/m/playlist?id=34&userid=1"), "34")
+        self.assertEqual(playlist_id("https://music.163.com/playlist/56"), "56")
+        self.assertIsNone(playlist_id("https://music.163.com/song?id=78"))
+
+
 class MediaTests(unittest.TestCase):
     def test_serves_files_and_ranges(self):
         with tempfile.TemporaryDirectory() as tmp:
