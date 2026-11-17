@@ -162,6 +162,7 @@ class NeteasePlugin(Plugin):
         return {
             "source": self.id,
             "id": pid,
+            "url": "https://music.163.com/playlist?id=" + pid,
             "title": data.get("name") or ("歌单 " + pid),
             "artist": (data.get("creator") or {}).get("nickname", ""),
             "cover": data.get("coverImgUrl", ""),

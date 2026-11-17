@@ -61,6 +61,8 @@ async def run(url, cookies):
             "ok": True,
             "source": "applemusic",
             "id": playlist_id,
+            "url": url.split("?")[0],
+            "storefront": api.storefront,
             "title": attrs.get("name") or playlist_id,
             "artist": attrs.get("curatorName") or "",
             "cover": cover_url(attrs.get("artwork")),

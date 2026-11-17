@@ -73,6 +73,8 @@ class Jukebox:
         self._prefetch_lock = threading.Lock()
         self.public_lock = threading.Lock()
         self.public_playlists = self._load_public()
+        self.sync_ttl = int(config.get("server", "playlist_sync_ttl", 1800))
+        self._syncing = set()
         self.secret = self._load_secret()
         self.token = hmac.new(self.secret.encode(), self.password.encode(), hashlib.sha256).hexdigest()
         os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
@@ -183,6 +185,7 @@ class Jukebox:
             for pl in self.public_playlists:
                 item = {k: v for k, v in pl.items() if k != "tracks"}
                 item["count"] = len(pl.get("tracks") or [])
+                item["syncable"] = bool(pl.get("url")) or pl.get("source") in ("applemusic", "netease")
                 out.append(item)
             return out
 
@@ -207,6 +210,66 @@ class Jukebox:
             self.public_playlists = [p for p in self.public_playlists if p.get("id") != playlist_id]
             self._save_public()
             return len(self.public_playlists) != before
+
+    def plugin_for_url(self, link):
+        host = urllib.parse.urlparse(link or "").netloc.lower()
+        if "163.com" in host:
+            return self.plugins.get("netease")
+        if "apple.com" in host:
+            return self.plugins.get("applemusic")
+        return None
+
+    def refresh_public(self, playlist_id):
+        """Re-parse a public playlist from its source link and replace its tracks."""
+        with self.public_lock:
+            target = next((p for p in self.public_playlists if p.get("id") == playlist_id), None)
+        if not target:
+            return None
+        link = str(target.get("url") or "")
+        source = str(target.get("source") or "")
+        if not link and source in ("applemusic", "netease"):
+            raw_id = str(target.get("id") or "")
+            raw_id = raw_id.split(":", 1)[1] if ":" in raw_id else raw_id
+            if source == "netease":
+                link = "https://music.163.com/playlist?id=" + raw_id
+            else:
+                sf = "us"
+                apple = self.plugins.get("applemusic")
+                if apple is not None and callable(getattr(apple, "storefront", None)):
+                    sf = apple.storefront()
+                link = "https://music.apple.com/%s/playlist/x/%s" % (sf, raw_id)
+            with self.public_lock:
+                target["url"] = link
+        plugin = self.plugin_for_url(link)
+        if not link or not plugin:
+            return None
+        data = plugin.playlist(link)
+        tracks = data.get("tracks") or []
+        with self.public_lock:
+            target["tracks"] = tracks
+            target["updated"] = int(time.time())
+            target["title"] = data.get("title") or target.get("title")
+            target["cover"] = data.get("cover") or target.get("cover")
+            target["source"] = data.get("source") or target.get("source")
+            self._save_public()
+        return {"count": len(tracks)}
+
+    def sync_public_async(self, playlist_id):
+        with self.public_lock:
+            if playlist_id in self._syncing:
+                return
+            self._syncing.add(playlist_id)
+
+        def run():
+            try:
+                self.refresh_public(playlist_id)
+            except Exception:
+                pass
+            finally:
+                with self.public_lock:
+                    self._syncing.discard(playlist_id)
+
+        threading.Thread(target=run, daemon=True).start()
 
     def plugin_list(self):
         out = []
@@ -441,7 +504,11 @@ class Handler(BaseHTTPRequestHandler):
                 item = self.app.get_public(playlist_id)
                 if not item:
                     return self._send(404, json.dumps({"error": "歌单不存在"}, ensure_ascii=False))
-                return self._send(200, json.dumps({"playlist": item}, ensure_ascii=False))
+                if item.get("url") and time.time() - int(item.get("updated") or 0) > self.app.sync_ttl:
+                    self.app.sync_public_async(playlist_id)
+                payload = dict(item)
+                payload["syncable"] = bool(item.get("url")) or item.get("source") in ("applemusic", "netease")
+                return self._send(200, json.dumps({"playlist": payload}, ensure_ascii=False))
             return self._send(200, json.dumps({"playlists": self.app.list_public()}, ensure_ascii=False))
         if url.path == "/api/state":
             song = self.app.song()
@@ -576,11 +643,21 @@ class Handler(BaseHTTPRequestHandler):
                 "title": str(pl.get("title") or "未命名歌单")[:80],
                 "artist": str(pl.get("artist") or "")[:80],
                 "cover": str(pl.get("cover") or ""),
+                "url": str(pl.get("url") or ""),
                 "tracks": clean,
                 "updated": int(time.time()),
             }
             app.put_public(record)
             return self._send(200, json.dumps({"ok": True, "id": playlist_id}, ensure_ascii=False))
+        if url.path == "/api/public_playlists/refresh":
+            playlist_id = str(body.get("id") or "")
+            try:
+                result = app.refresh_public(playlist_id)
+            except Exception as exc:
+                return self._send(400, json.dumps({"error": str(exc)}, ensure_ascii=False))
+            if result is None:
+                return self._send(400, json.dumps({"error": "这个歌单没有来源链接，无法同步"}, ensure_ascii=False))
+            return self._send(200, json.dumps({"ok": True, "count": result["count"]}, ensure_ascii=False))
         if url.path == "/api/public_playlists/delete":
             playlist_id = str(body.get("id") or "")
             if not playlist_id or not app.delete_public(playlist_id):

@@ -526,6 +526,7 @@ function renderPlaylistView(pl,kind,key){
     '<button class="plmini" onclick="addAllCurrent(true)">全部插播</button>'+
     (kind==='local'?'<button class="plmini" onclick="publishCurrent()">发布到服务器</button>'
                    :'<button class="plmini" onclick="unpublishCurrent()">删除公共歌单</button>')+
+    (plUrl(pl)?'<button class="plmini" onclick="refreshCurrentPlaylist()">同步歌单</button>':'')+
     '<input class="plfilter" id="plFilter" placeholder="筛选歌名 / 歌手" oninput="filterPlaylistRows(this.value)">'+
     '<button class="plmini" onclick="backToSearch()">返回搜索</button></div>';
   var rows='';
@@ -628,6 +629,38 @@ async function doCreatePublic(){
   }catch(e){toast('创建失败',true)}
 }
 
+function plUrl(pl){
+  if(!pl)return '';
+  if(pl.url)return pl.url;
+  if(pl.source==='netease')return 'https://music.163.com/playlist?id='+pl.id;
+  if(pl.source==='applemusic')return 'https://music.apple.com/'+(pl.storefront||'cn')+'/playlist/x/'+pl.id;
+  return '';
+}
+async function refreshCurrentPlaylist(){
+  var pl=plCurrent; if(!pl)return;
+  var link=plUrl(pl);
+  if(!link){toast('这个歌单没有来源链接，无法同步',true);return}
+  try{
+    if(plKind==='public'){
+      var r=await fetch('/api/public_playlists/refresh',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:pl.id})});
+      var d=await r.json();
+      if(!r.ok){toast(d.error||'同步失败',true);return}
+      delete plCache[pl.id];
+      var r2=await fetch('/api/public_playlists?id='+encodeURIComponent(pl.id));
+      var d2=await r2.json();
+      if(r2.ok){plCache[pl.id]=d2.playlist;renderPlaylistView(d2.playlist,'public',pl.id)}
+      toast('已同步：'+d.count+' 首'); await loadPublic();
+    }else{
+      var r3=await fetch('/api/playlist?url='+encodeURIComponent(link));
+      var d3=await r3.json();
+      if(!r3.ok){toast(d3.error||'同步失败',true);return}
+      var fresh=Object.assign({}, d3.playlist, {savedAt:Date.now()});
+      saved[plKey]=fresh; persistSaved(); renderChips();
+      renderPlaylistView(fresh,'local',plKey);
+      toast('已同步：'+fresh.tracks.length+' 首');
+    }
+  }catch(e){toast('同步失败',true)}
+}
 function loadSaved(){try{var raw=JSON.parse(localStorage.getItem('jb_playlists')||'[]');return Array.isArray(raw)?raw:[]}catch(e){return []}}
 function persistSaved(){try{localStorage.setItem('jb_playlists',JSON.stringify(saved))}catch(e){}}
 function openPlaylists(){$('plModal').classList.add('show');renderSaved()}

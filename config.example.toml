@@ -14,6 +14,7 @@ rate_window = 60          # ... per N seconds
 worker = true             # false = UI demo only, never talks to the bot
 login_limit = 5           # failed logins per IP ...
 login_window = 300        # ... before the IP is locked out for this many seconds
+playlist_sync_ttl = 1800  # public playlists re-sync in background after this many seconds
 
 [bot]
 # TS3AudioBot web API (enable [web.api] in ts3audiobot.toml)
