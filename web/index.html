@@ -194,6 +194,23 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .lyrics div{font-size:13.5px;line-height:1.9;color:#6f7681;transition:color .25s,transform .25s}
 .lyrics div.on{color:var(--amber2);transform:translateX(4px)}
 .mbox .macts{display:flex;gap:10px;margin-top:16px}
+
+.track{cursor:pointer;min-height:64px}
+.track:hover{background:rgba(237,231,218,.06)}
+.track.queued{background:rgba(240,169,59,.07)}
+.track.queued:hover{background:rgba(240,169,59,.11)}
+.track .acts{opacity:.55}
+.track:hover .acts{opacity:1}
+.tsrc{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--teal);border:1px solid rgba(87,201,189,.4);
+  border-radius:3px;padding:0 4px;margin-right:6px;vertical-align:1px}
+.tsrc.ne{color:#c98c8c;border-color:rgba(201,140,140,.4)}
+.qbadge{font-family:var(--mono);font-size:9px;color:var(--amber2);border:1px solid rgba(240,169,59,.5);
+  border-radius:3px;padding:0 4px;margin-left:6px;vertical-align:1px}
+.plviewhead{position:sticky;top:0;z-index:6;display:flex;align-items:center;gap:8px;flex-wrap:wrap;
+  padding:8px 0;margin-bottom:6px;background:linear-gradient(180deg,var(--ink) 72%,rgba(10,12,16,.86))}
+.plfilter{background:#0c0f14;border:1px solid var(--line2);border-radius:8px;color:var(--cream);font:12px var(--sans);
+  padding:6px 10px;outline:none;width:150px}
+.plfilter:focus{border-color:var(--amber)}
 @keyframes rise{from{opacity:0;transform:translateY(14px)}to{opacity:1;transform:none}}
 @keyframes slide{from{opacity:0;transform:translateX(8px)}to{opacity:1;transform:none}}
 ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#2a2f39;border-radius:3px}
@@ -301,6 +318,47 @@ function notice(text){$('notice').textContent=text;$('notice').className='notice
 function fmt(s){s=Math.max(0,Math.floor(s||0));return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0')}
 function toast(msg,err){const t=$('toast');t.textContent=msg;t.className='toast show'+(err?' err':'');clearTimeout(t._h);t._h=setTimeout(()=>t.className='toast',2600)}
 function coverHtml(url,cls){if(!url)return '<div class="'+cls+' ph">♪</div>';const u=url.indexOf('music.126.net')>-1?url+'?param=120y120':url;return '<img class="'+cls+'" src="'+u+'" loading="lazy" onerror="this.style.display=\'none\'">'}
+
+let queuedKeys=new Set();
+function trackRow(t,i){
+  var key=(t.source||'')+':'+t.id;
+  var src=t.source==='applemusic'?'<span class="tsrc">AM</span>':(t.source==='netease'?'<span class="tsrc ne">NE</span>':'');
+  var j=JSON.stringify(t).replace(/'/g,'&#39;');
+  return '<div class="track" data-key="'+esc(key)+'" onclick=\'addTrack('+j+',false)\'>'+
+    '<span class="idx">'+String(i+1).padStart(2,'0')+'</span>'+
+    coverHtml(t.cover,'cov')+
+    '<div class="meta"><div class="name">'+src+esc(t.name)+'</div>'+
+    '<div class="sub">'+esc(t.artist||'')+(t.album?' · '+esc(t.album):'')+'</div></div>'+
+    '<span class="dur">'+fmt((t.duration||0)/1000)+'</span>'+
+    '<span class="acts">'+
+      '<button onclick=\'event.stopPropagation();addTrack('+j+',false)\'>点歌</button>'+
+      '<button class="ins" onclick=\'event.stopPropagation();addTrack('+j+',true)\'>插播</button>'+
+      '<button class="pladd" title="加到公共歌单" onclick=\'event.stopPropagation();pickTarget('+j+')\'>＋</button>'+
+    '</span></div>';
+}
+function markQueued(){
+  var nodes=document.querySelectorAll('#results .track');
+  for(var i=0;i<nodes.length;i++){
+    var el=nodes[i], on=queuedKeys.has(el.getAttribute('data-key')||'');
+    if(on){el.classList.add('queued')}else{el.classList.remove('queued')}
+    var name=el.querySelector('.name'); if(!name)continue;
+    var badge=name.querySelector('.qbadge');
+    if(on&&!badge){var s=document.createElement('span');s.className='qbadge';s.textContent='已点';name.appendChild(s)}
+    if(!on&&badge){badge.remove()}
+  }
+}
+function filterPlaylistRows(q){
+  var pl=plCurrent; if(!pl)return;
+  q=(q||'').trim().toLowerCase();
+  var out='';
+  for(var j=0;j<pl.tracks.length;j++){
+    var t=pl.tracks[j];
+    if(q && String(t.name||'').toLowerCase().indexOf(q)<0 && String(t.artist||'').toLowerCase().indexOf(q)<0) continue;
+    out+=trackRow(t,j);
+  }
+  var box=$('plRows'); if(box){box.innerHTML=out||'<div class="empty">没有匹配的歌曲</div>'}
+  markQueued();
+}
 function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
 function setSrc(s){src=s;limit=20;document.querySelectorAll('.src').forEach(b=>b.classList.toggle('on',b.dataset.s===s));$('results').innerHTML='<div class="empty">输入关键词开始搜索</div>';refresh()}
@@ -314,16 +372,7 @@ async function search(){
   const d=await r.json();
   notice(d.ready?'':(d.hint||'该音源暂不可用'));
   if(!d.songs||!d.songs.length){$('results').innerHTML='<div class="empty">没找到，换个关键词试试</div>';return}
-  const rows=d.songs.map((s,i)=>'<div class="track">'+
-    '<span class="idx">'+String(i+1).padStart(2,'0')+'</span>'+
-    coverHtml(s.cover,'cov')+
-    '<div class="meta"><div class="name">'+esc(s.name)+'</div><div class="sub">'+esc(s.artist)+' · '+esc(s.album)+'</div></div>'+
-    '<span class="dur">'+fmt(s.duration/1000)+'</span>'+
-    '<span class="acts">'+
-    '<button onclick=\'add(this,'+JSON.stringify(s).replace(/'/g,"&#39;")+')\'>点歌</button>'+
-    '<button class="ins" onclick=\'add(this,'+JSON.stringify(s).replace(/'/g,"&#39;")+',1)\'>插播</button>'+
-    '<button class="pladd" title="加到公共歌单" onclick=\'pickTarget('+JSON.stringify(s).replace(/'/g,"&#39;")+')\'>＋</button>'+
-    '</span></div>').join('');
+  const rows=d.songs.map((s,i)=>trackRow(s,i)).join('');
   const more=d.songs.length>=limit?(limit>=50?'':'<button class="more" onclick="moreResults()">显示更多（'+d.songs.length+' 条，最多 50）</button>'):'';
   $('results').innerHTML=rows+more;
 }
@@ -366,6 +415,10 @@ async function refresh(){
   $('btnToggle').textContent=d.paused?'继续':'暂停';
 
   const q=d.queue||[]; $('qCount').textContent=q.length;
+  queuedKeys=new Set();
+  if(c&&c.id!==undefined) queuedKeys.add((c.source||'')+':'+c.id);
+  for(var qi=0;qi<q.length;qi++) queuedKeys.add((q[qi].source||'')+':'+q[qi].id);
+  markQueued();
   const qsig=q.map(x=>x.id+'#'+x.name).join('|');
   if(qsig!==lastQSig){lastQSig=qsig;
     $('queue').innerHTML=q.length?q.map((x,i)=>'<div class="qitem" draggable="true" data-i="'+i+'"><span class="n">'+(i+1)+'</span>'+
@@ -473,18 +526,12 @@ function renderPlaylistView(pl,kind,key){
     '<button class="plmini" onclick="addAllCurrent(true)">全部插播</button>'+
     (kind==='local'?'<button class="plmini" onclick="publishCurrent()">发布到服务器</button>'
                    :'<button class="plmini" onclick="unpublishCurrent()">删除公共歌单</button>')+
+    '<input class="plfilter" id="plFilter" placeholder="筛选歌名 / 歌手" oninput="filterPlaylistRows(this.value)">'+
     '<button class="plmini" onclick="backToSearch()">返回搜索</button></div>';
   var rows='';
-  for(var j=0;j<pl.tracks.length;j++){
-    var t=pl.tracks[j];
-    rows+='<div class="track"><span class="idx">'+String(j+1).padStart(2,'0')+'</span>'+
-      coverHtml(t.cover,'cov')+
-      '<div class="meta"><div class="name">'+esc(t.name)+'</div><div class="sub">'+esc(t.artist||'')+(t.album?' · '+esc(t.album):'')+'</div></div>'+
-      '<span class="dur">'+fmt((t.duration||0)/1000)+'</span>'+
-      '<span class="acts"><button onclick="addTrack(plCurrent.tracks['+j+'],false)">点歌</button>'+
-      '<button class="ins" onclick="addTrack(plCurrent.tracks['+j+'],true)">插播</button></span></div>';
-  }
-  $('results').innerHTML=head+rows;
+  for(var j=0;j<pl.tracks.length;j++){ rows+=trackRow(pl.tracks[j],j); }
+  $('results').innerHTML=head+'<div id="plRows">'+rows+'</div>';
+  markQueued();
 }
 function showPlaylist(i){var pl=saved[i]; if(pl) renderPlaylistView(pl,'local',i)}
 async function showPublic(id){
