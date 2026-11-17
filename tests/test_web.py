@@ -207,6 +207,20 @@ class QueueTests(PanelTestCase):
         _, state = self.request("/api/state")
         self.assertEqual(state["queue"][-1]["name"], names[0])
 
+    def test_clear_queue_keeps_current(self):
+        self.request("/api/add", "POST", {"source": "fake", "id": "30", "name": "Playing"})
+        self.wait_playing()
+        for i in range(2):
+            self.request("/api/add", "POST", {"source": "fake", "id": "4%d" % i, "name": "Queued%d" % i})
+        _, state = self.request("/api/state")
+        self.assertGreaterEqual(len(state["queue"]), 1)
+        current = state["current"]["name"]
+        status, _ = self.request("/api/clear", "POST", {})
+        self.assertEqual(status, 200)
+        _, state = self.request("/api/state")
+        self.assertEqual(state["queue"], [])
+        self.assertEqual(state["current"]["name"], current)
+
     def test_remove_drops_item(self):
         for i in range(2):
             self.request("/api/add", "POST", {"source": "fake", "id": str(20 + i), "name": "R%d" % i})

@@ -689,6 +689,11 @@ class Handler(BaseHTTPRequestHandler):
             for plugin, track in prefetch:
                 app.schedule_prefetch(plugin, track)
             return self._send(200, json.dumps({"ok": True, "added": added}, ensure_ascii=False))
+        if url.path == "/api/clear":
+            with app.lock:
+                app.queue.clear()
+                app.save_state()
+            return self._send(200, json.dumps({"ok": True}))
         if url.path == "/api/skip":
             with app.lock:
                 app.current = None

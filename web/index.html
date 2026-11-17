@@ -102,6 +102,10 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .qhead{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:12px}
 .qhead h2{font-family:var(--mono);font-size:11px;letter-spacing:.24em;color:var(--dim);margin:0;font-weight:500}
 .qhead .cnt{font-family:var(--mono);font-size:11px;color:var(--amber)}
+.qhead-r{display:inline-flex;align-items:center;gap:10px}
+.qclear{background:transparent;border:1px solid var(--line);color:var(--dim);border-radius:5px;font:500 10.5px var(--sans);
+  padding:2px 8px;cursor:pointer;transition:.15s}
+.qclear:hover{color:#e08a8a;border-color:rgba(224,107,107,.5)}
 .qlist{display:flex;flex-direction:column;gap:2px;max-height:320px;overflow:auto}
 .qitem{display:grid;grid-template-columns:20px minmax(0,1fr) 24px;gap:10px;align-items:center;padding:8px 6px;border-radius:8px}
 .qitem:hover{background:rgba(237,231,218,.04)}
@@ -247,7 +251,7 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
         <button class="btn ghost" onclick="openLyrics()">歌词</button>
       </section>
       <section class="card">
-        <div class="qhead"><h2>QUEUE</h2><span class="cnt" id="qCount">0</span></div>
+        <div class="qhead"><h2>QUEUE</h2><span class="qhead-r"><span class="cnt" id="qCount">0</span><button class="qclear" onclick="clearQueue()" title="清空待播队列">清空</button></span></div>
         <div class="qlist" id="queue"><div class="empty">队列是空的</div></div>
       </section>
       <section class="card">
@@ -392,6 +396,11 @@ function readd(i){const h=lastHistory[i];if(h)add(null,h,false)}
 
 async function toggle(){await fetch('/api/toggle',{method:'POST'});refresh()}
 async function skip(){await fetch('/api/skip',{method:'POST'});toast('已切歌');refresh()}
+async function clearQueue(){
+  if(!confirm('清空队列里所有待播放的歌？（正在播放的不受影响）'))return;
+  await fetch('/api/clear',{method:'POST'});
+  toast('队列已清空'); refresh();
+}
 async function rm(i){await fetch('/api/remove',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({index:i})});refresh()}
 async function reorder(from,to){await fetch('/api/reorder',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({from:from,to:to})});refresh()}
 
