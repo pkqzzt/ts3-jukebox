@@ -55,6 +55,23 @@ class NeteaseUrlTests(unittest.TestCase):
         self.assertIsNone(playlist_id("https://music.163.com/song?id=78"))
 
 
+class ApplePlaylistUrlTests(unittest.TestCase):
+    def test_shared_library_playlist_url(self):
+        import importlib.util
+        import os
+
+        path = os.path.join(ROOT, "scripts", "apple", "playlist.py")
+        spec = importlib.util.spec_from_file_location("apple_playlist_script", path)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        match = module.URL_RE.search("https://music.apple.com/cn/playlist/11/pl.u-r2yBDbkFRzBlqkL")
+        self.assertIsNotNone(match)
+        self.assertEqual(match.group(1), "cn")
+        self.assertEqual(match.group(2), "pl.u-r2yBDbkFRzBlqkL")
+        catalog = module.URL_RE.search("https://music.apple.com/hk/playlist/top-hits/pl.f4d106fed2bd41149aaacabb233eb5eb")
+        self.assertEqual(catalog.group(2), "pl.f4d106fed2bd41149aaacabb233eb5eb")
+
+
 class MediaTests(unittest.TestCase):
     def test_serves_files_and_ranges(self):
         with tempfile.TemporaryDirectory() as tmp:

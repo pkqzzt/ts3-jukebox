@@ -79,6 +79,8 @@ cookies 里必须有 <code>media-user-token</code> 这一条，否则 gamdl 无�
 
 ## 6. 商店差异（重要）
 
+歌单：编辑精选（`pl.0123...`）和个人分享歌单（`pl.u-xxxx`）都支持，个人歌单通过账号的目录接口解析。
+
 搜索走的是 Apple 公开的 iTunes Search API，只能查 hk / tw / us 三个商店（大陆商店没有开放搜索接口）。
 而你的账号可能在 cn 商店，**同一首歌在不同商店的 catalog id 不同，版权也不同**。
 

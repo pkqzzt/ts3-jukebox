@@ -10,7 +10,9 @@ import re
 import sys
 
 MAX_TRACKS = 300
-URL_RE = re.compile(r"music\.apple\.com/(?:([a-z]{2})/)?playlist/[^/?#]+/(pl\.[A-Za-z0-9]+)")
+# Catalog ids look like pl.0123456789abcdef0123456789abcdef, personal/shared
+# playlists look like pl.u-r2yBDbkFRzBlqkL (hyphen after "u").
+URL_RE = re.compile(r"music\.apple\.com/(?:([a-z]{2})/)?playlist/[^/?#]+/(pl\.[A-Za-z0-9.\-]+)")
 
 
 def cover_url(art):
