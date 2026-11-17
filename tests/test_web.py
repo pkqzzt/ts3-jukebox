@@ -41,6 +41,11 @@ class FakePlugin(Plugin):
     def prefetch(self, track, media):
         self.prefetched.append(track["id"])
 
+    def playlist(self, url):
+        return {"source": self.id, "id": "pl1", "title": "Test List", "artist": "tester", "cover": "",
+                "tracks": [{"source": self.id, "id": "p1", "name": "P1", "artist": "a"},
+                           {"source": self.id, "id": "p2", "name": "P2", "artist": "b"}]}
+
 
 class FakeBot:
     """Minimal TS3AudioBot API double that records calls."""
@@ -210,6 +215,33 @@ class QueueTests(PanelTestCase):
         self.request("/api/remove", "POST", {"index": 0})
         _, state = self.request("/api/state")
         self.assertEqual(len(state["queue"]), before - 1)
+
+
+class PlaylistTests(PanelTestCase):
+    def setUp(self):
+        super().setUp()
+        self.app.plugins["netease"] = self.app.plugins["fake"]
+
+    def test_playlist_is_parsed(self):
+        status, data = self.request("/api/playlist?url=" + urllib.parse.quote("https://music.163.com/playlist?id=123"))
+        self.assertEqual(status, 200)
+        self.assertEqual(data["playlist"]["title"], "Test List")
+        self.assertEqual([x["name"] for x in data["playlist"]["tracks"]], ["P1", "P2"])
+
+    def test_unknown_host_is_rejected(self):
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            self.request("/api/playlist?url=" + urllib.parse.quote("https://example.com/list"))
+        self.assertEqual(ctx.exception.code, 400)
+
+    def test_bulk_add_queues_tracks(self):
+        tracks = [{"source": "fake", "id": "b1", "name": "B1"},
+                  {"source": "fake", "id": "b2", "name": "B2"}]
+        status, data = self.request("/api/add_bulk", "POST", {"tracks": tracks})
+        self.assertEqual(status, 200)
+        self.assertEqual(data["added"], 2)
+        _, state = self.request("/api/state")
+        self.assertEqual(state["current"]["name"], "B1")
+        self.assertEqual([x["name"] for x in state["queue"]], ["B2"])
 
 
 class PluginTests(PanelTestCase):

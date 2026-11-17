@@ -362,6 +362,25 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 return self._send(500, json.dumps({"error": str(exc)}, ensure_ascii=False))
             return self._send(200, json.dumps({"lines": lines}, ensure_ascii=False))
+        if url.path == "/api/playlist":
+            link = (query.get("url") or [""])[0].strip()
+            if not link:
+                return self._send(400, json.dumps({"error": "缺少歌单链接"}, ensure_ascii=False))
+            host = urllib.parse.urlparse(link).netloc.lower()
+            if "163.com" in host:
+                source = "netease"
+            elif "apple.com" in host:
+                source = "applemusic"
+            else:
+                return self._send(400, json.dumps({"error": "只支持网易云 / Apple Music 歌单链接"}, ensure_ascii=False))
+            plugin = self.app.plugins.get(source)
+            if plugin is None or not callable(getattr(plugin, "playlist", None)):
+                return self._send(400, json.dumps({"error": "该音源未启用或不支持歌单"}, ensure_ascii=False))
+            try:
+                data = plugin.playlist(link)
+            except Exception as exc:
+                return self._send(400, json.dumps({"error": str(exc)}, ensure_ascii=False))
+            return self._send(200, json.dumps({"playlist": data}, ensure_ascii=False))
         if url.path == "/api/state":
             song = self.app.song()
             with self.app.lock:
@@ -430,6 +449,32 @@ class Handler(BaseHTTPRequestHandler):
                 app.save_state()
             app.schedule_prefetch(plugin, item)
             return self._send(200, json.dumps({"ok": True}))
+        if url.path == "/api/add_bulk":
+            if not app.rate_ok(self._ip()):
+                return self._send(429, json.dumps({"error": "点歌太频繁，请稍后再试"}, ensure_ascii=False))
+            tracks = body.get("tracks") or []
+            if not isinstance(tracks, list) or not tracks:
+                return self._send(400, json.dumps({"error": "没有要添加的曲目"}, ensure_ascii=False))
+            insert = bool(body.get("insert"))
+            accepted, prefetch = [], []
+            for track in tracks[:100]:
+                plugin = app.plugins.get(str(track.get("source") or ""))
+                if plugin is None or plugin.validate(track):
+                    continue
+                accepted.append(track)
+                prefetch.append((plugin, track))
+            with app.lock:
+                if insert:
+                    app.queue[0:0] = accepted
+                else:
+                    app.queue.extend(accepted)
+                if app.current is None and app.queue:
+                    app.start(app.queue.pop(0))
+                app.save_state()
+            added = len(accepted)
+            for plugin, track in prefetch:
+                app.schedule_prefetch(plugin, track)
+            return self._send(200, json.dumps({"ok": True, "added": added}, ensure_ascii=False))
         if url.path == "/api/skip":
             with app.lock:
                 app.current = None

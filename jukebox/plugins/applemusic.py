@@ -42,6 +42,7 @@ class AppleMusicPlugin(Plugin):
         self.cookies = self._abs(self.conf.get("cookies"), "data/cookies.txt")
         self.checker = self._abs(self.conf.get("checker"), "scripts/apple/check_auth.py")
         self.finder = self._abs(self.conf.get("finder"), "scripts/apple/find_track.py")
+        self.playlist_script = self._abs(self.conf.get("playlist_script"), "scripts/apple/playlist.py")
         self.status_file = self._abs(self.conf.get("status_file"), "data/apple_status.json")
         self.cache = self._abs(self.conf.get("cache"), "data/applemusic")
         self.log = self._abs(self.conf.get("log"), "data/apple_download.log")
@@ -185,6 +186,24 @@ class AppleMusicPlugin(Plugin):
         if not str(track.get("id") or "").isdigit():
             return "非法的 Apple Music 曲目 ID"
         return None
+
+    def playlist(self, url):
+        if "music.apple.com" not in (url or ""):
+            raise PluginError("不是有效的 Apple Music 歌单链接")
+        try:
+            proc = subprocess.run([self.python, self.playlist_script, url, self.cookies],
+                                  stdin=subprocess.DEVNULL, stdout=subprocess.PIPE,
+                                  stderr=subprocess.PIPE, timeout=240)
+        except Exception as exc:
+            raise PluginError("解析歌单失败：%s" % exc)
+        raw = (proc.stdout or b"").decode("utf-8", "replace").strip()
+        try:
+            data = json.loads(raw.splitlines()[-1]) if raw else {}
+        except Exception:
+            raise PluginError("Apple Music 返回了无法解析的歌单数据")
+        if not data.get("ok"):
+            raise PluginError(data.get("error") or "解析歌单失败")
+        return data
 
     def prefetch(self, track, media):
         try:

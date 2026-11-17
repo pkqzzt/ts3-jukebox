@@ -20,4 +20,12 @@ chmod 700 "$DST/data" 2>/dev/null || true
 cp "$SRC/deploy/ts3-jukebox.service" /etc/systemd/system/ts3-jukebox.service
 systemctl daemon-reload
 systemctl enable --now ts3-jukebox
+
+if [ "${WITH_MEDIA_SERVICE:-0}" = "1" ]; then
+  cp "$SRC/deploy/ts3-jukebox-media.service" /etc/systemd/system/ts3-jukebox-media.service
+  systemctl daemon-reload
+  systemctl enable --now ts3-jukebox-media
+  echo "==> media service enabled; set [media] embedded = false in config.toml"
+fi
+
 echo "==> done. status: systemctl status ts3-jukebox"

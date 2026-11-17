@@ -51,6 +51,10 @@ class Plugin:
         """Return a playable URL for the track, downloading if necessary."""
         raise NotImplementedError
 
+    def playlist(self, url: str) -> dict:
+        """Parse a playlist share link into {"title", "tracks": [...]}."""
+        raise NotImplementedError
+
     def prefetch(self, track: dict, media) -> None:
         """Optional: warm the cache as soon as the track is queued."""
         return None

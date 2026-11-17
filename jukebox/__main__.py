@@ -5,7 +5,7 @@ import argparse
 import os
 
 from .config import Config
-from .media import MediaServer
+from .media import MediaClient, MediaServer
 from .web import serve
 
 
@@ -16,11 +16,12 @@ def main():
 
     config = Config.load(args.config)
     media_dir = config.path(config.get("media", "dir"), "data/media")
-    media = MediaServer(
-        media_dir,
-        host=str(config.get("media", "host", "127.0.0.1")),
-        port=int(config.get("media", "port", 8081)),
-    ).start()
+    media_host = str(config.get("media", "host", "127.0.0.1"))
+    media_port = int(config.get("media", "port", 8081))
+    if bool(config.get("media", "embedded", True)):
+        media = MediaServer(media_dir, host=media_host, port=media_port).start()
+    else:
+        media = MediaClient(media_host, media_port, roots=[media_dir])
     web_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
     serve(config, media, web_dir)
 

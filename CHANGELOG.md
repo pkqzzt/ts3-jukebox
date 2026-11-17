@@ -5,6 +5,15 @@
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-11-17
+
+### Added
+- 歌单功能：粘贴网易云 / Apple Music 歌单链接，解析后保存在浏览器本地，可逐首点歌/插播或整单加入（`GET /api/playlist`、`POST /api/add_bulk`）
+- 媒体服务可拆成独立进程（`python -m jukebox.media` + `ts3-jukebox-media.service`），面板重启不再中断正在播放的歌曲
+
+### Changed
+- `[media] embedded` 配置项，默认 true（面板内嵌），可切换为独立服务
+
 ## [1.1.2] - 2026-11-17
 
 ### Added

@@ -15,6 +15,8 @@ import urllib.request
 from .base import Plugin, PluginError
 
 LRC_TIME = re.compile(r"\[(\d+):(\d+(?:\.\d+)?)\]")
+PLAYLIST_ID = re.compile(r"/playlist/(\d+)|[?&#]id=(\d+)")
+PLAYLIST_LIMIT = 300
 
 
 class NeteasePlugin(Plugin):
@@ -100,3 +102,48 @@ class NeteasePlugin(Plugin):
             lines.append({"t": int(match.group(1)) * 60 + float(match.group(2)), "text": text})
         lines.sort(key=lambda item: item["t"])
         return lines
+
+
+    # -- playlist ----------------------------------------------------------
+    def playlist(self, url):
+        match = None
+        if "playlist" in (url or ""):
+            match = PLAYLIST_ID.search(url)
+        if not match:
+            raise PluginError("不是有效的网易云歌单链接")
+        pid = match.group(1) or match.group(2)
+        detail = self._get("/playlist/detail", id=pid)
+        data = detail.get("playlist") or {}
+        if not data:
+            raise PluginError("网易云没有返回这个歌单（可能是私密歌单或链接失效）")
+        tracks = []
+        offset = 0
+        while len(tracks) < PLAYLIST_LIMIT:
+            page = self._get("/playlist/track/all", id=pid, limit=200, offset=offset)
+            rows = page.get("songs") or []
+            if not rows:
+                break
+            for row in rows:
+                tracks.append({
+                    "source": self.id,
+                    "id": row["id"],
+                    "name": row["name"],
+                    "artist": "/".join(a["name"] for a in row.get("ar") or []),
+                    "album": (row.get("al") or {}).get("name", ""),
+                    "cover": (row.get("al") or {}).get("picUrl", ""),
+                    "duration": row.get("dt", 0),
+                })
+                if len(tracks) >= PLAYLIST_LIMIT:
+                    break
+            offset += len(rows)
+            if len(rows) < 200:
+                break
+        return {
+            "source": self.id,
+            "id": pid,
+            "title": data.get("name") or ("歌单 " + pid),
+            "artist": (data.get("creator") or {}).get("nickname", ""),
+            "cover": data.get("coverImgUrl", ""),
+            "tracks": tracks,
+            "truncated": len(tracks) >= PLAYLIST_LIMIT,
+        }

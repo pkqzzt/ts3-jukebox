@@ -1,0 +1,15 @@
+[Unit]
+Description=ts3-jukebox media server (serves downloaded audio to TS3AudioBot)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/opt/jukebox
+ExecStart=/usr/bin/python3 -m jukebox.media --host 127.0.0.1 --port 8081 --dir /var/cache/applemusic --dir /opt/jukebox/data/media
+Restart=always
+RestartSec=3
+User=root
+
+[Install]
+WantedBy=multi-user.target

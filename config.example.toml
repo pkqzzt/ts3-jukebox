@@ -21,7 +21,11 @@ context = "/api/bot/use/0/(/"
 timeout = 8               # per-request timeout towards the bot (seconds)
 
 [media]
-# Local HTTP server used to hand downloaded files to the bot
+# Local HTTP server used to hand downloaded files to the bot.
+# embedded = true  -> the panel process runs it (simple, but restarting the
+#                     panel interrupts tracks that stream from here)
+# embedded = false -> run it separately: python -m jukebox.media --dir ...
+embedded = true
 host = "127.0.0.1"
 port = 8081
 dir = "data/media"

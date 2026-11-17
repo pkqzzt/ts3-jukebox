@@ -66,6 +66,7 @@ TeamSpeak 3 的网页点歌台：浏览器搜歌 → 点歌 / 插播 → 自动�
 
 - 🔎 双音源搜索（防抖 + 「显示更多」最多 50 条），音源以插件形式加载
 - 🎵 点歌 / 插播 / 删除 / 跳过 / 暂停 / 拖动进度条跳转（±10s 按钮）
+- 📥 歌单导入：粘贴网易云 / Apple Music 歌单链接，解析后存在浏览器本地，逐首点歌/插播或整单加入
 - 🔀 队列拖动排序、播放历史（最近 50 首，可一键再点）
 - 📋 队列与历史持久化，重启不丢
 - ⏭ 自动接歌：按机器人上报的播放进度判断结束并自动切下一首
@@ -160,6 +161,30 @@ Apple Music 的流是 DRM 加密的，必须用 [gamdl](https://github.com/gloma
     }
 
 > 面板会读取 <code>X-Forwarded-For</code> / <code>CF-Connecting-IP</code> 做限流，反代时记得传。
+
+## 歌单
+
+把别人发来的歌单链接粘贴进来就能整单听（入口在搜索框右上角「＋ 歌单」）：
+
+![歌单](docs/screenshots/playlist.jpg)
+
+- 支持网易云 `music.163.com/playlist?id=...`、Apple Music `music.apple.com/.../playlist/.../pl.xxxx`
+- 解析后歌单保存在**浏览器本地**（localStorage），换浏览器/清缓存就没了
+- 每首歌右边有「＋插播」「点歌」；歌单标题栏有「全部点歌 / 全部插播」，一次请求入队（最多 100 首/次）
+- 单个歌单最多解析 300 首，超出会提示已截断
+- Apple Music 歌单解析较慢（要过一遍 Apple 接口），通常 3~6 秒
+
+## 媒体服务（可选独立进程）
+
+默认面板自己跑媒体服务（`[media] embedded = true`），简单但**重启面板会切断正在播放的 Apple Music 曲目**
+（音频是从面板进程里流出去的）。想做到更新面板不影响播放，就把它拆出去：
+
+    sudo cp deploy/ts3-jukebox-media.service /etc/systemd/system/
+    sudo systemctl enable --now ts3-jukebox-media
+    # config.toml 里改成 [media] embedded = false
+    sudo systemctl restart ts3-jukebox
+
+之后媒体服务独立跑在 127.0.0.1:8081，面板重启照常放歌。
 
 ## Docker 部署
 

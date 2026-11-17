@@ -5,6 +5,7 @@ TS3AudioBot plays whatever URL it is given, so plugins that produce local files
 """
 from __future__ import annotations
 
+import argparse
 import os
 import re
 import sys
@@ -134,3 +135,49 @@ class MediaServer:
 
     def stop(self) -> None:
         self.server.shutdown()
+
+
+class MediaClient:
+    """Points at a media server that runs in its own process.
+
+    Keeping the file server outside the panel process means restarting or
+    redeploying the panel no longer interrupts Apple Music playback (the bot
+    streams the file from here).
+    """
+
+    def __init__(self, host: str = "127.0.0.1", port: int = 8081, roots=None):
+        self.host = host
+        self.port = port
+        self.roots = list(roots or [])
+
+    def url(self, filename: str) -> str:
+        return "http://%s:%d/%s" % (self.host, self.port, urllib.parse.quote(filename))
+
+    def add_root(self, directory: str) -> str:
+        # The external service owns its roots; remember it for diagnostics only.
+        directory = os.path.abspath(directory)
+        if directory not in self.roots:
+            self.roots.append(directory)
+        return directory
+
+
+def main(argv=None) -> None:
+    """Run a standalone media server: python -m jukebox.media --dir ... --port 8081."""
+    parser = argparse.ArgumentParser(prog="jukebox.media", description="ts3-jukebox media server")
+    parser.add_argument("--host", default="127.0.0.1")
+    parser.add_argument("--port", type=int, default=8081)
+    parser.add_argument("--dir", action="append", default=[], dest="dirs",
+                        help="directory to serve (repeatable)")
+    args = parser.parse_args(argv)
+    if not args.dirs:
+        parser.error("at least one --dir is required")
+    server = MediaServer(args.dirs[0], host=args.host, port=args.port)
+    for extra in args.dirs[1:]:
+        server.add_root(extra)
+    print("ts3-jukebox media listening on %s:%d (roots: %s)"
+          % (args.host, args.port, ", ".join(server.roots)), flush=True)
+    server.server.serve_forever()
+
+
+if __name__ == "__main__":
+    main()

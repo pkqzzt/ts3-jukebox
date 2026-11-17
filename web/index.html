@@ -122,6 +122,35 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
   font:500 13px var(--sans);cursor:pointer;transition:.18s}
 .src:hover{color:var(--cream);border-color:rgba(237,231,218,.3)}
 .src.on{background:rgba(240,169,59,.14);border-color:rgba(240,169,59,.55);color:var(--amber2)}
+.srcwrap{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.plbtn{margin-left:auto;background:transparent;border:1px dashed var(--line2);color:var(--dim);
+  padding:6px 12px;border-radius:20px;font:500 12.5px var(--sans);cursor:pointer;transition:.18s;white-space:nowrap}
+.plbtn:hover{color:var(--amber2);border-color:rgba(240,169,59,.5)}
+.mbox.wide{max-width:700px}
+.plrow{display:flex;gap:8px;margin-bottom:10px}
+.plrow input{flex:1;background:#0c0f14;border:1px solid var(--line2);border-radius:9px;color:var(--cream);
+  font:12.5px var(--mono);padding:10px 12px;outline:none;min-width:0}
+.plrow input:focus{border-color:var(--amber)}
+.pllist{margin-top:6px;max-height:56vh;overflow:auto}
+.plitem{border:1px solid var(--line);border-radius:11px;margin-bottom:8px;overflow:hidden}
+.plhead{display:flex;align-items:center;gap:10px;padding:9px 10px;cursor:pointer;background:rgba(237,231,218,.02)}
+.plhead:hover{background:rgba(237,231,218,.05)}
+.plcov{width:38px;height:38px;border-radius:5px;object-fit:cover;background:#1b2029;flex:none}
+.plcov.ph{display:flex;align-items:center;justify-content:center;color:#3d434e}
+.plmeta{min-width:0;flex:1}
+.plname{font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plname.small{font-size:12.5px}
+.plsub{font-size:11.5px;color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.plmini{background:rgba(237,231,218,.06);border:1px solid var(--line);color:var(--cream);border-radius:6px;
+  font:500 11px var(--sans);padding:4px 8px;cursor:pointer;white-space:nowrap}
+.plmini:hover{background:rgba(237,231,218,.12)}
+.plmini.primary{background:var(--amber);border-color:transparent;color:#1a1206}
+.plx{background:none;border:0;color:#4d525c;font-size:15px;cursor:pointer;padding:0 2px}
+.plx:hover{color:#e06b6b}
+.pltracks{max-height:38vh;overflow:auto;border-top:1px solid var(--line)}
+.pltrack{display:flex;align-items:center;gap:10px;padding:7px 10px}
+.pltrack:hover{background:rgba(237,231,218,.04)}
+.plidx{font-family:var(--mono);font-size:10.5px;color:#4d525c;width:20px;text-align:right;flex:none}
 .src .am{font-family:var(--mono);font-size:10px;letter-spacing:.12em;opacity:.75;margin-left:6px}
 .badge{font-family:var(--mono);font-size:9px;letter-spacing:.1em;color:var(--amber);border:1px solid rgba(240,169,59,.4);
   border-radius:3px;padding:1px 4px;margin-right:6px;vertical-align:1px}
@@ -163,7 +192,7 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
   </header>
   <div class="grid">
     <main>
-      <div class="srcbar" id="srcbar"></div>
+      <div class="srcbar"><div id="srcbar" class="srcwrap"></div><button class="plbtn" onclick="openPlaylists()" title="导入歌单">＋ 歌单</button></div>
       <div class="searchbox">
         <input id="q" placeholder="搜歌名 / 歌手，回车" autocomplete="off">
         <span class="ico"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.6-3.6"></path></svg></span>
@@ -204,6 +233,19 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
     <div class="sub" id="lyricSub"></div>
     <div class="lyrics" id="lyricBody"><div>加载中…</div></div>
     <div class="macts"><button class="btn" onclick="closeLyrics()">关闭</button></div>
+  </div>
+</div>
+<div class="modal" id="plModal">
+  <div class="mbox wide">
+    <h3>歌单</h3>
+    <div class="sub">粘贴别人发来的歌单链接（网易云 / Apple Music），解析后保存在本浏览器，随时点歌或插播</div>
+    <div class="plrow">
+      <input id="plUrl" placeholder="https://music.163.com/playlist?id=... 或 https://music.apple.com/.../playlist/.../pl.xxxx" autocomplete="off">
+      <button class="btn primary" id="plParse" onclick="parsePlaylist()">解析</button>
+    </div>
+    <div class="astat" id="plStatus"></div>
+    <div class="pllist" id="plList"></div>
+    <div class="macts"><button class="btn" onclick="closePlaylists()">关闭</button></div>
   </div>
 </div>
 <div class="toast" id="toast"></div>
@@ -357,6 +399,72 @@ $('queue').addEventListener('dragstart',e=>{const el=e.target.closest('.qitem');
 $('queue').addEventListener('dragend',()=>{document.querySelectorAll('.qitem').forEach(x=>x.classList.remove('dragging','over'));dragFrom=-1});
 $('queue').addEventListener('dragover',e=>{const el=e.target.closest('.qitem');if(!el||dragFrom<0)return;e.preventDefault();document.querySelectorAll('.qitem').forEach(x=>x.classList.remove('over'));el.classList.add('over')});
 $('queue').addEventListener('drop',e=>{const el=e.target.closest('.qitem');if(!el||dragFrom<0)return;e.preventDefault();const to=+el.dataset.i;document.querySelectorAll('.qitem').forEach(x=>x.classList.remove('over'));if(to!==dragFrom)reorder(dragFrom,to)});
+
+let saved=loadSaved(), openPl=-1;
+function loadSaved(){try{var raw=JSON.parse(localStorage.getItem('jb_playlists')||'[]');return Array.isArray(raw)?raw:[]}catch(e){return []}}
+function persistSaved(){try{localStorage.setItem('jb_playlists',JSON.stringify(saved))}catch(e){}}
+function openPlaylists(){$('plModal').classList.add('show');renderSaved()}
+function closePlaylists(){$('plModal').classList.remove('show')}
+function plStatus(text,bad){var el=$('plStatus');el.textContent=text||'';el.className='astat'+(bad?' bad':(text?' ok':''))}
+async function parsePlaylist(){
+  var url=$('plUrl').value.trim(); if(!url){toast('先粘贴歌单链接',true);return}
+  var btn=$('plParse'); btn.disabled=true; btn.textContent='解析中…'; plStatus('解析中，Apple Music 歌单可能要几秒…');
+  try{
+    var r=await fetch('/api/playlist?url='+encodeURIComponent(url));
+    var d=await r.json();
+    if(!r.ok){plStatus(d.error||'解析失败',true);return}
+    var pl=d.playlist;
+    saved=saved.filter(function(x){return !(x.source===pl.source&&String(x.id)===String(pl.id))});
+    saved.unshift(pl); persistSaved();
+    openPl=0; renderSaved();
+    plStatus('已保存：'+pl.title+' · '+pl.tracks.length+' 首'+(pl.truncated?'（已截断到 300 首）':''),false);
+    $('plUrl').value='';
+  }catch(e){plStatus('解析失败：'+e,true)}
+  finally{btn.disabled=false;btn.textContent='解析'}
+}
+function renderSaved(){
+  var box=$('plList');
+  if(!saved.length){box.innerHTML='<div class="empty">还没有保存歌单，粘贴链接解析一下</div>';return}
+  var out='';
+  for(var i=0;i<saved.length;i++){
+    var pl=saved[i];
+    out+='<div class="plitem"><div class="plhead" onclick="togglePl('+i+')">'+
+      coverHtml(pl.cover,'plcov')+
+      '<div class="plmeta"><div class="plname">'+esc(pl.title)+'</div><div class="plsub">'+
+        esc(pl.artist||'')+(pl.artist?' · ':'')+pl.tracks.length+' 首 · '+(pl.source==='applemusic'?'Apple Music':'网易云')+
+      '</div></div>'+
+      '<button class="plmini" onclick="event.stopPropagation();addAll('+i+',false)">全部点歌</button>'+
+      '<button class="plmini" onclick="event.stopPropagation();addAll('+i+',true)">全部插播</button>'+
+      '<button class="plx" onclick="event.stopPropagation();delPl('+i+')">×</button></div>';
+    if(openPl===i){
+      out+='<div class="pltracks">';
+      for(var t=0;t<pl.tracks.length;t++){
+        var tr=pl.tracks[t];
+        out+='<div class="pltrack"><span class="plidx">'+(t+1)+'</span>'+
+          '<div class="plmeta"><div class="plname small">'+esc(tr.name)+'</div><div class="plsub">'+esc(tr.artist||'')+'</div></div>'+
+          '<button class="plmini" onclick="addT('+i+','+t+',true)">＋插播</button>'+
+          '<button class="plmini primary" onclick="addT('+i+','+t+',false)">点歌</button></div>';
+      }
+      out+='</div>';
+    }
+    out+='</div>';
+  }
+  box.innerHTML=out;
+}
+function togglePl(i){openPl=(openPl===i?-1:i);renderSaved()}
+function delPl(i){saved.splice(i,1);openPl=-1;persistSaved();renderSaved();toast('已删除歌单')}
+function addT(pi,ti,insert){var pl=saved[pi];if(!pl||!pl.tracks[ti])return;add(null,pl.tracks[ti],insert)}
+async function addAll(pi,insert){
+  var pl=saved[pi]; if(!pl)return;
+  try{
+    var r=await fetch('/api/add_bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tracks:pl.tracks,insert:!!insert})});
+    var d=await r.json();
+    if(r.status===429){toast('点歌太频繁，稍后再试',true);return}
+    if(!r.ok){toast(d.error||'添加失败',true);return}
+    toast((insert?'已插播 ':'已加入 ')+d.added+' 首'); refresh();
+  }catch(e){toast('添加失败',true)}
+}
+document.addEventListener('keydown',function(e){if(e.key==='Escape'){closePlaylists();closeLyrics()}});
 
 function tick(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(searchTimer);limit=20;search()}});
