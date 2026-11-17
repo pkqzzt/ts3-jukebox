@@ -46,6 +46,7 @@ class Jukebox:
         self.login_limit = int(config.get("server", "login_limit", 5))
         self.login_window = int(config.get("server", "login_window", 300))
         self.state_file = config.path(config.get("server", "state_file"), "data/state.json")
+        self.public_file = config.path(config.get("server", "public_playlists_file"), "data/public_playlists.json")
         self.secret_file = config.path(config.get("server", "secret_file"), "data/secret")
 
         self.plugins = {}
@@ -69,6 +70,8 @@ class Jukebox:
         self._prefetch_q = queue_mod.Queue()
         self._prefetch_seen = set()
         self._prefetch_lock = threading.Lock()
+        self.public_lock = threading.Lock()
+        self.public_playlists = self._load_public()
         self.secret = self._load_secret()
         self.token = hmac.new(self.secret.encode(), self.password.encode(), hashlib.sha256).hexdigest()
         os.makedirs(os.path.dirname(self.state_file), exist_ok=True)
@@ -153,6 +156,56 @@ class Jukebox:
             return
         self.history.insert(0, entry)
         del self.history[HISTORY_LIMIT:]
+
+    # -- public playlists ---------------------------------------------------
+    def _load_public(self):
+        try:
+            with open(self.public_file, encoding="utf-8") as fh:
+                data = json.load(fh)
+            return data if isinstance(data, list) else []
+        except Exception:
+            return []
+
+    def _save_public(self):
+        try:
+            os.makedirs(os.path.dirname(self.public_file), exist_ok=True)
+            tmp = self.public_file + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as fh:
+                json.dump(self.public_playlists, fh, ensure_ascii=False)
+            os.replace(tmp, self.public_file)
+        except Exception:
+            pass
+
+    def list_public(self):
+        with self.public_lock:
+            out = []
+            for pl in self.public_playlists:
+                item = {k: v for k, v in pl.items() if k != "tracks"}
+                item["count"] = len(pl.get("tracks") or [])
+                out.append(item)
+            return out
+
+    def get_public(self, playlist_id):
+        with self.public_lock:
+            for pl in self.public_playlists:
+                if pl.get("id") == playlist_id:
+                    return pl
+        return None
+
+    def put_public(self, playlist):
+        pid = playlist.get("id")
+        with self.public_lock:
+            self.public_playlists = [p for p in self.public_playlists if p.get("id") != pid]
+            self.public_playlists.insert(0, playlist)
+            del self.public_playlists[50:]
+            self._save_public()
+
+    def delete_public(self, playlist_id):
+        with self.public_lock:
+            before = len(self.public_playlists)
+            self.public_playlists = [p for p in self.public_playlists if p.get("id") != playlist_id]
+            self._save_public()
+            return len(self.public_playlists) != before
 
     def plugin_list(self):
         out = []
@@ -381,6 +434,14 @@ class Handler(BaseHTTPRequestHandler):
             except Exception as exc:
                 return self._send(400, json.dumps({"error": str(exc)}, ensure_ascii=False))
             return self._send(200, json.dumps({"playlist": data}, ensure_ascii=False))
+        if url.path == "/api/public_playlists":
+            playlist_id = (query.get("id") or [""])[0]
+            if playlist_id:
+                item = self.app.get_public(playlist_id)
+                if not item:
+                    return self._send(404, json.dumps({"error": "歌单不存在"}, ensure_ascii=False))
+                return self._send(200, json.dumps({"playlist": item}, ensure_ascii=False))
+            return self._send(200, json.dumps({"playlists": self.app.list_public()}, ensure_ascii=False))
         if url.path == "/api/state":
             song = self.app.song()
             with self.app.lock:
@@ -448,6 +509,38 @@ class Handler(BaseHTTPRequestHandler):
                         app.start(app.queue.pop(0))
                 app.save_state()
             app.schedule_prefetch(plugin, item)
+            return self._send(200, json.dumps({"ok": True}))
+        if url.path == "/api/public_playlists":
+            pl = body.get("playlist") or {}
+            tracks = pl.get("tracks") or []
+            if not isinstance(tracks, list) or not tracks:
+                return self._send(400, json.dumps({"error": "歌单没有曲目"}, ensure_ascii=False))
+            clean = []
+            for track in tracks[:300]:
+                if not isinstance(track, dict):
+                    continue
+                source = str(track.get("source") or "")
+                if source not in app.plugins or not str(track.get("id") or "") or not str(track.get("name") or "").strip():
+                    continue
+                clean.append(track)
+            if not clean:
+                return self._send(400, json.dumps({"error": "没有可用的曲目（音源未启用？）"}, ensure_ascii=False))
+            playlist_id = "%s:%s" % (pl.get("source") or clean[0]["source"], pl.get("id") or "")
+            record = {
+                "id": playlist_id,
+                "source": pl.get("source") or clean[0]["source"],
+                "title": str(pl.get("title") or "未命名歌单")[:80],
+                "artist": str(pl.get("artist") or "")[:80],
+                "cover": str(pl.get("cover") or ""),
+                "tracks": clean,
+                "updated": int(time.time()),
+            }
+            app.put_public(record)
+            return self._send(200, json.dumps({"ok": True, "id": playlist_id}, ensure_ascii=False))
+        if url.path == "/api/public_playlists/delete":
+            playlist_id = str(body.get("id") or "")
+            if not playlist_id or not app.delete_public(playlist_id):
+                return self._send(404, json.dumps({"error": "歌单不存在"}, ensure_ascii=False))
             return self._send(200, json.dumps({"ok": True}))
         if url.path == "/api/add_bulk":
             if not app.rate_ok(self._ip()):

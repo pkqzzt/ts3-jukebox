@@ -1,3 +1,3 @@
 """ts3-jukebox: a pluggable song request panel for TeamSpeak 3."""
 
-__version__ = "1.3.1"
+__version__ = "1.4.0"

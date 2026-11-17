@@ -7,6 +7,7 @@ port = 8080
 password = "change-me"    # panel login password
 cookie_name = "jukebox_auth"
 state_file = "data/state.json"
+public_playlists_file = "data/public_playlists.json"
 secret_file = "data/secret"
 rate_limit = 5            # song requests per IP ...
 rate_window = 60          # ... per N seconds

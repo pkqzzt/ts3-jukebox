@@ -244,6 +244,31 @@ class PlaylistTests(PanelTestCase):
         self.assertEqual([x["name"] for x in state["queue"]], ["B2"])
 
 
+class PublicPlaylistTests(PanelTestCase):
+    def test_publish_list_fetch_delete(self):
+        playlist = {"source": "fake", "id": "p1", "title": "公共歌单", "artist": "t",
+                    "tracks": [{"source": "fake", "id": "x1", "name": "X1"}]}
+        status, data = self.request("/api/public_playlists", "POST", {"playlist": playlist})
+        self.assertEqual(status, 200)
+        _, listing = self.request("/api/public_playlists")
+        self.assertEqual(len(listing["playlists"]), 1)
+        self.assertEqual(listing["playlists"][0]["count"], 1)
+        self.assertEqual(listing["playlists"][0]["title"], "公共歌单")
+        _, full = self.request("/api/public_playlists?id=" + urllib.parse.quote(data["id"]))
+        self.assertEqual(full["playlist"]["tracks"][0]["name"], "X1")
+        status, _ = self.request("/api/public_playlists/delete", "POST", {"id": data["id"]})
+        self.assertEqual(status, 200)
+        _, listing = self.request("/api/public_playlists")
+        self.assertEqual(listing["playlists"], [])
+
+    def test_unknown_source_is_rejected(self):
+        playlist = {"source": "nope", "id": "p2", "title": "x",
+                    "tracks": [{"source": "nope", "id": "1", "name": "n"}]}
+        with self.assertRaises(urllib.error.HTTPError) as ctx:
+            self.request("/api/public_playlists", "POST", {"playlist": playlist})
+        self.assertEqual(ctx.exception.code, 400)
+
+
 class PluginTests(PanelTestCase):
     def test_search_returns_limit(self):
         status, data = self.request("/api/search?source=fake&q=hello&limit=7")

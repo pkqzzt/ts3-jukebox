@@ -129,6 +129,9 @@ main{min-height:0;display:flex;flex-direction:column;overflow:hidden}
 .plchip:hover{background:rgba(237,231,218,.1);border-color:var(--line2)}
 .plchip.on{background:rgba(240,169,59,.14);border-color:rgba(240,169,59,.55);color:var(--amber2)}
 .plchip .c{font-family:var(--mono);font-size:10px;color:var(--dim)}
+.plchip.pub{border-color:rgba(87,201,189,.45)}
+.plchip.pub.on{border-color:rgba(87,201,189,.85);background:rgba(87,201,189,.12);color:var(--teal)}
+.plchip .tag{font-family:var(--mono);font-size:9px;letter-spacing:.06em;color:var(--teal);border:1px solid rgba(87,201,189,.45);border-radius:3px;padding:0 4px}
 .plchip.add{border-style:dashed;color:var(--dim);background:transparent}
 .plchip.add:hover{color:var(--amber2);border-color:rgba(240,169,59,.45)}
 .plviewhead{display:flex;align-items:center;gap:10px;margin-bottom:10px;flex-wrap:wrap}
@@ -410,24 +413,38 @@ $('queue').addEventListener('dragover',e=>{const el=e.target.closest('.qitem');i
 $('queue').addEventListener('drop',e=>{const el=e.target.closest('.qitem');if(!el||dragFrom<0)return;e.preventDefault();const to=+el.dataset.i;document.querySelectorAll('.qitem').forEach(x=>x.classList.remove('over'));if(to!==dragFrom)reorder(dragFrom,to)});
 
 let saved=loadSaved(), openPl=-1;
-let plView='search', plIndex=-1;
+let plView='search', plKind='local', plKey=null, plPublic=[], plCache={}, plCurrent=null;
+
 function renderChips(){
   var box=$('plChips'); if(!box)return;
   var out='';
   for(var i=0;i<saved.length;i++){
-    out+='<button class="plchip'+(plView==='playlist'&&plIndex===i?' on':'')+'" onclick="showPlaylist('+i+')" title="'+esc(saved[i].title)+'">'+
+    var on=(plView==='playlist'&&plKind==='local'&&plKey===i);
+    out+='<button class="plchip'+(on?' on':'')+'" onclick="showPlaylist('+i+')" title="'+esc(saved[i].title)+'">'+
       esc(saved[i].title)+'<span class="c">'+saved[i].tracks.length+'</span></button>';
+  }
+  for(var k=0;k<plPublic.length;k++){
+    var pp=plPublic[k];
+    var onp=(plView==='playlist'&&plKind==='public'&&plKey===pp.id);
+    out+='<button class="plchip pub'+(onp?' on':'')+'" onclick="showPublic(\''+pp.id+'\')" title="'+esc(pp.title)+'">'+
+      esc(pp.title)+'<span class="c">'+pp.count+'</span><span class="tag">公共</span></button>';
   }
   out+='<button class="plchip add" onclick="openPlaylists()">＋ 导入歌单</button>';
   box.innerHTML=out;
 }
-function showPlaylist(i){
-  var pl=saved[i]; if(!pl)return;
-  plView='playlist'; plIndex=i; renderChips(); notice('');
+async function loadPublic(){
+  try{var r=await fetch('/api/public_playlists'); if(r.ok){var d=await r.json(); plPublic=d.playlists||[]}}catch(e){}
+  renderChips();
+}
+function renderPlaylistView(pl,kind,key){
+  plCurrent=pl; plView='playlist'; plKind=kind; plKey=key; renderChips(); notice('');
   var head='<div class="plviewhead"><div class="plmeta"><div class="plname">'+esc(pl.title)+'</div>'+
-    '<div class="plsub">'+esc(pl.artist||'')+(pl.artist?' · ':'')+pl.tracks.length+' 首 · '+(pl.source==='applemusic'?'Apple Music':'网易云')+'</div></div>'+
-    '<button class="plmini" onclick="addAll('+i+',false)">全部点歌</button>'+
-    '<button class="plmini" onclick="addAll('+i+',true)">全部插播</button>'+
+    '<div class="plsub">'+esc(pl.artist||'')+(pl.artist?' · ':'')+pl.tracks.length+' 首 · '+
+    (pl.source==='applemusic'?'Apple Music':'网易云')+(kind==='public'?' · 公共歌单':'')+'</div></div>'+
+    '<button class="plmini" onclick="addAllCurrent(false)">全部点歌</button>'+
+    '<button class="plmini" onclick="addAllCurrent(true)">全部插播</button>'+
+    (kind==='local'?'<button class="plmini" onclick="publishCurrent()">发布到服务器</button>'
+                   :'<button class="plmini" onclick="unpublishCurrent()">删除公共歌单</button>')+
     '<button class="plmini" onclick="backToSearch()">返回搜索</button></div>';
   var rows='';
   for(var j=0;j<pl.tracks.length;j++){
@@ -436,13 +453,50 @@ function showPlaylist(i){
       coverHtml(t.cover,'cov')+
       '<div class="meta"><div class="name">'+esc(t.name)+'</div><div class="sub">'+esc(t.artist||'')+(t.album?' · '+esc(t.album):'')+'</div></div>'+
       '<span class="dur">'+fmt((t.duration||0)/1000)+'</span>'+
-      '<span class="acts"><button onclick="addT('+i+','+j+',false)">点歌</button>'+
-      '<button class="ins" onclick="addT('+i+','+j+',true)">插播</button></span></div>';
+      '<span class="acts"><button onclick="addTrack(plCurrent.tracks['+j+'],false)">点歌</button>'+
+      '<button class="ins" onclick="addTrack(plCurrent.tracks['+j+'],true)">插播</button></span></div>';
   }
   $('results').innerHTML=head+rows;
 }
-function backToSearch(){plView='search';plIndex=-1;renderChips();$('results').innerHTML='<div class="empty">输入关键词开始搜索</div>'}
-
+function showPlaylist(i){var pl=saved[i]; if(pl) renderPlaylistView(pl,'local',i)}
+async function showPublic(id){
+  if(plCache[id]){renderPlaylistView(plCache[id],'public',id);return}
+  plView='playlist'; plKind='public'; plKey=id; renderChips();
+  $('results').innerHTML='<div class="empty">加载歌单…</div>';
+  try{
+    var r=await fetch('/api/public_playlists?id='+encodeURIComponent(id));
+    var d=await r.json();
+    if(!r.ok){$('results').innerHTML='<div class="empty">'+esc(d.error||'加载失败')+'</div>';return}
+    plCache[id]=d.playlist; renderPlaylistView(d.playlist,'public',id);
+  }catch(e){$('results').innerHTML='<div class="empty">加载失败</div>'}
+}
+function backToSearch(){plView='search';plKind='local';plKey=null;plCurrent=null;renderChips();$('results').innerHTML='<div class="empty">输入关键词开始搜索</div>'}
+function addTrack(t,insert){if(t)add(null,t,insert)}
+async function addAllTracks(tracks,insert){
+  try{var r=await fetch('/api/add_bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tracks:tracks,insert:!!insert})});
+    var d=await r.json();
+    if(r.status===429){toast('点歌太频繁，稍后再试',true);return}
+    if(!r.ok){toast(d.error||'添加失败',true);return}
+    toast((insert?'已插播 ':'已加入 ')+d.added+' 首'); refresh();
+  }catch(e){toast('添加失败',true)}
+}
+function addAllCurrent(insert){if(plCurrent)addAllTracks(plCurrent.tracks,insert)}
+async function publishCurrent(){
+  if(!plCurrent)return;
+  try{var r=await fetch('/api/public_playlists',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({playlist:plCurrent})});
+    var d=await r.json();
+    if(!r.ok){toast(d.error||'发布失败',true);return}
+    toast('已发布为公共歌单'); await loadPublic();
+  }catch(e){toast('发布失败',true)}
+}
+async function unpublishCurrent(){
+  if(!plCurrent||plKind!=='public')return;
+  if(!confirm('从服务器删除这个公共歌单？'))return;
+  try{var r=await fetch('/api/public_playlists/delete',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:plCurrent.id})});
+    if(!r.ok){toast('删除失败',true);return}
+    delete plCache[plCurrent.id]; plCurrent=null; toast('已删除公共歌单'); await loadPublic(); backToSearch();
+  }catch(e){toast('删除失败',true)}
+}
 
 function loadSaved(){try{var raw=JSON.parse(localStorage.getItem('jb_playlists')||'[]');return Array.isArray(raw)?raw:[]}catch(e){return []}}
 function persistSaved(){try{localStorage.setItem('jb_playlists',JSON.stringify(saved))}catch(e){}}
@@ -495,24 +549,15 @@ function renderSaved(){
   box.innerHTML=out;
 }
 function togglePl(i){openPl=(openPl===i?-1:i);renderSaved()}
-function delPl(i){saved.splice(i,1);openPl=-1;persistSaved();renderSaved();renderChips();if(plIndex===i)backToSearch();toast('已删除歌单')}
-function addT(pi,ti,insert){var pl=saved[pi];if(!pl||!pl.tracks[ti])return;add(null,pl.tracks[ti],insert)}
-async function addAll(pi,insert){
-  var pl=saved[pi]; if(!pl)return;
-  try{
-    var r=await fetch('/api/add_bulk',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({tracks:pl.tracks,insert:!!insert})});
-    var d=await r.json();
-    if(r.status===429){toast('点歌太频繁，稍后再试',true);return}
-    if(!r.ok){toast(d.error||'添加失败',true);return}
-    toast((insert?'已插播 ':'已加入 ')+d.added+' 首'); refresh();
-  }catch(e){toast('添加失败',true)}
-}
+function delPl(i){saved.splice(i,1);openPl=-1;persistSaved();renderSaved();renderChips();if(plKind==='local'&&plKey===i)backToSearch();toast('已删除歌单')}
+function addT(pi,ti,insert){var pl=saved[pi];if(pl&&pl.tracks[ti])add(null,pl.tracks[ti],insert)}
+function addAll(pi,insert){var pl=saved[pi];if(pl)addAllTracks(pl.tracks,insert)}
 document.addEventListener('keydown',function(e){if(e.key==='Escape'){closePlaylists();closeLyrics()}});
 
 function tick(){const d=new Date();$('clock').textContent=String(d.getHours()).padStart(2,'0')+':'+String(d.getMinutes()).padStart(2,'0')}
 $('q').addEventListener('keydown',e=>{if(e.key==='Enter'){clearTimeout(searchTimer);limit=20;search()}});
 $('q').addEventListener('input',()=>{clearTimeout(searchTimer);const v=$('q').value.trim();if(!v)return;searchTimer=setTimeout(()=>{limit=20;search()},380)});
-renderChips();
+renderChips(); loadPublic();
 tick();setInterval(tick,10000);
 loadPlugins().then(refresh);
 setInterval(refresh,2000);setInterval(loadPlugins,60000);

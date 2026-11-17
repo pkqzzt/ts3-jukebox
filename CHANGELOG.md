@@ -5,6 +5,13 @@
 
 ## [Unreleased]
 
+## [1.4.0] - 2026-11-17
+
+### Added
+- 公共歌单：歌单视图里「发布到服务器」，所有人共享（`GET/POST /api/public_playlists`、`POST /api/public_playlists/delete`）
+- 公共歌单以带「公共」标记的胶囊展示，点击即可浏览并逐首点歌/插播
+- 服务器端保存在 `data/public_playlists.json`，最多 50 个歌单、每个 300 首
+
 ## [1.3.1] - 2026-11-17
 
 ### Fixed
